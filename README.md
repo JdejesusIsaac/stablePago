@@ -1,123 +1,103 @@
-## Using another chain
+<div align="center">
+<img width="200" alt="Image" src="https://github.com/user-attachments/assets/8b617791-cd37-4a5a-8695-a7c9018b7c70" />
+<br>
+<br>
+<h1>StablePago</h1>
 
-To use another chain, you'll need to:
+<div align="center">
+<a href="https://docs.crossmint.com/">Crossmint Docs</a> | <a href="https://developers.circle.com/">Circle Docs</a> | <a href="https://t.me/crossmintdevs">Join Crossmint Telegram</a> 
+</div>
 
-1. Update the chain environment variable to the chain you want to use.
+<br>
+<br>
+<img src="https://github.com/user-attachments/assets/9bd7085c-5a92-4590-ae22-f892e353efce" alt="Image" width="full">
+</div>
 
-```env
-NEXT_PUBLIC_CHAIN_ID=solana  # or polygon, ethereum, arbitrum, etc.
+## Table of contents
+
+- [Introduction](#introduction)
+- [Setup](#setup)
+- [Features](#features)
+  - [Wallet Creation for Email Addresses](#wallet-creation-for-email-addresses)
+  - [Telegram Shopping Delegation](#telegram-shopping-delegation)
+  - [Withdraw to Bank (Circle)](#withdraw-to-bank-circle)
+- [Environment Variables](#environment-variables)
+- [Database Setup](#database-setup)
+- [Using another chain](#using-another-chain)
+- [Using in production](#using-in-production)
+
+## Introduction
+
+**StablePago** is a hybrid settlement layer that connects stablecoins (on-chain liquidity) with local fiat rails, starting in Puerto Rico and the Dominican Republic. Built on **[Crossmint](https://crossmint.com)** wallets and **[Circle](https://www.circle.com/)** payouts.
+
+**Mission**: Bridge stablecoin speed with local fiat rails, starting in Puerto Rico.
+
+**MVP Flow**: 
+```
+USDC in → send to recipient's email → recipient can withdraw to PR bank via Circle
 ```
 
-2. Update the USDC locator to the USDC of the chain you want to use.
+**Key features**
 
-```env
-# For solana: 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
-# For ethereum: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
-# For base: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
-NEXT_PUBLIC_USDC_MINT=your_USDC_address
+- 🔐 **Login with email or social media** - Crossmint authentication
+- 💼 **Non-custodial wallets** - Automatically created for users
+- 💳 **Top up with USDC** - Using credit or debit card via Crossmint
+- 📧 **Transfer USDC by email** - Send to any email address
+- 🏦 **Withdraw to bank** - Circle payouts to local bank accounts (USD)
+- 👤 **Create wallets for recipients** - Generate wallets for email addresses (e.g., onboard "Grandma")
+- 🤖 **Telegram Shopping Bot Integration** - Delegate wallet permissions with spending limits
+- 📊 **Activity Feed** - View all wallet transactions
+- 🌐 **Multi-chain support** - Solana, EVM, and +40 other chains
+
+**Tech Stack**
+
+- **Frontend**: Next.js 15, React 19, Tailwind CSS
+- **Wallets**: Crossmint (non-custodial smart wallets)
+- **Payments**: Circle Mint/Core API (bank payouts)
+- **Database**: Supabase (PostgreSQL)
+- **Delegation**: Crossmint Wallet Delegation SDK
+
+## Setup
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/JdejesusIsaac/stablePago.git
+cd stablePago/fintech-starter-app
 ```
 
-Supported chains: Solana, Ethereum, Base, Polygon, Arbitrum, Optimism, and 40+ more.
+### 2. Install dependencies
 
----
-
-## Using in production
-
-To deploy StablePago to production:
-
-### 1. Crossmint Production Setup
-
-1. Login to the [Crossmint production console](https://www.crossmint.com/console)
-2. Create production API keys with these scopes:
-   - `users.create`, `users.read`
-   - `wallets.read`, `wallets.create`
-   - `wallets:transactions.create`, `wallets:transactions.sign`, `wallets:transactions.read`
-   - `wallets:balance.read`
-   - `wallets.fund`
-   - `wallets:signers.create`, `wallets:signers.read` (for delegation)
-
-3. Update `.env.local`:
-```env
-NEXT_PUBLIC_CROSSMINT_CLIENT_API_KEY=pk_live_...
-CROSSMINT_SERVER_SIDE_API_KEY=sk_live_...
-CROSSMINT_ENV=production
+```bash
+pnpm install
+# or npm install / yarn install / bun install
 ```
 
-4. Customize email templates in Console → Settings → Branding
+### 3. Set up Crossmint
 
-**⚠️ Note**: Non-custodial signers for Solana are undergoing security audit. Join [Telegram](https://t.me/crossmintdevs) for updates.
-
-### 2. Update Chain to Mainnet
-
-```env
-NEXT_PUBLIC_CHAIN_ID=base  # or ethereum, polygon, etc.
-NEXT_PUBLIC_USDC_MINT=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913  # Base USDC
-```
-
-### 3. Circle Production Setup
-
-1. Complete KYB (Know Your Business) verification with Circle
-2. Get production API key from [Circle Console](https://console.circle.com)
-3. Update `.env.local`:
+1. Login to the <a href="https://staging.crossmint.com/console" target="_blank">Crossmint staging console</a>
+2. Get your API keys from the <a href="https://staging.crossmint.com/console/overview" target="_blank">overview page</a>
+3. Create a `.env.local` file with:
 
 ```env
-CIRCLE_BASE_URL=https://api.circle.com
-CIRCLE_API_KEY=LIVE_API_KEY...
-PAYMENTS_CIRCLE_ENABLED=true
+# Crossmint (required)
+NEXT_PUBLIC_CROSSMINT_CLIENT_API_KEY=your_client_api_key
+CROSSMINT_SERVER_SIDE_API_KEY=your_server_api_key
+CROSSMINT_ENV=staging  # or 'production'
+
+# Chain configuration
+NEXT_PUBLIC_CHAIN_ID=base-sepolia
+NEXT_PUBLIC_USDC_MINT=0x036CbD53842c5426634e7929541eC2318f3dCF7e
 ```
 
-4. Test with small amounts first
-5. Implement Travel Rule compliance for payouts ≥ $3,000
+### 4. Set up Supabase
 
-### 4. Supabase Production
+1. Create a Supabase project at <a href="https://supabase.com" target="_blank">supabase.com</a>
+2. Add Supabase credentials to `.env.local`:
 
-1. Create a production Supabase project
-2. Run all migrations
-3. Enable RLS on all tables
-4. Set up backups and monitoring
-5. Update environment variables
-
-### 5. Deployment Checklist
-
-- [ ] Crossmint production API keys configured
-- [ ] Supabase production database set up
-- [ ] Circle production API configured (if using withdrawals)
-- [ ] Environment variables set in Vercel/hosting platform
-- [ ] Domain configured and SSL enabled
-- [ ] Email templates customized
-- [ ] Test all flows: signup → deposit → send → withdraw
-- [ ] Monitor error logs and transactions
-- [ ] Set up alerting for failed transactions
-
-### 6. Compliance & Security
-
-**For Puerto Rico Operations:**
-- Ensure compliance with local money transmission laws
-- Implement proper KYC/AML procedures
-- Set up transaction monitoring
-- Maintain audit logs in Supabase
-- Review Circle's Travel Rule requirements
-
-**Recommended:**
-- Set up rate limiting (enable wallet creation limits)
-- Implement fraud detection
-- Add two-factor authentication
-- Regular security audits
-- Incident response plan
-
----
-
-## Support
-
-- **Crossmint**: [Telegram](https://t.me/crossmintdevs) | [Docs](https://docs.crossmint.com/)
-- **Circle**: [Support](https://support.circle.com/) | [Docs](https://developers.circle.com/)
-- **StablePago**: Open an issue on [GitHub](https://github.com/JdejesusIsaac/stablePago)
-
----
-
-## License
-
-MIT License - see LICENSE file for details://your-project.supabase.co
+```env
+# Supabase (required)
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 ```
@@ -433,9 +413,4 @@ PAYMENTS_CIRCLE_ENABLED=true
 - **Circle**: [Support](https://support.circle.com/) | [Docs](https://developers.circle.com/)
 - **StablePago**: Open an issue on [GitHub](https://github.com/JdejesusIsaac/stablePago)
 
----
-
-## License
-
-MIT License - see LICENSE file for details
 
