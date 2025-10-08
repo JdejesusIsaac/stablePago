@@ -4,14 +4,6 @@
 <br>
 <h1>StablePago</h1>
 
-<div align="center">
-<a href="https://docs.crossmint.com/">Crossmint Docs</a> | <a href="https://developers.circle.com/">Circle Docs</a> | <a href="https://t.me/crossmintdevs">Join Crossmint Telegram</a> 
-</div>
-
-<br>
-<br>
-<img src="https://github.com/user-attachments/assets/9bd7085c-5a92-4590-ae22-f892e353efce" alt="Image" width="full">
-</div>
 
 ## Table of contents
 
