@@ -2,39 +2,50 @@ import Image from "next/image";
 import { WalletBalance } from "./WalletBallance";
 import { DepositButton } from "../common/DepositButton";
 import { Container } from "../common/Container";
-import { ArrowsRightLeftIcon, WalletIcon } from "@heroicons/react/24/outline";
+import { ArrowsRightLeftIcon, WalletIcon, ShoppingBagIcon, UserPlusIcon } from "@heroicons/react/24/outline";
 import { Dropdown } from "../common/Dropdown";
 import { useState } from "react";
 import { WalletDetails } from "./WalletDetails";
 import { useWallet, useAuth } from "@crossmint/client-sdk-react-ui";
 import { WarningModal } from "./WarningModal";
+import { DelegationManager } from "../delegation/DelegationManager";
+import { DelegationSetup } from "../delegation/DelegationSetup";
 
 interface DashboardSummaryProps {
   onDepositClick: () => void;
   onSendClick: () => void;
+  onWithdrawClick: () => void;
+  onCreateWalletClick: () => void;
 }
 
-export function DashboardSummary({ onDepositClick, onSendClick }: DashboardSummaryProps) {
+export function DashboardSummary({ onDepositClick, onSendClick, onWithdrawClick, onCreateWalletClick }: DashboardSummaryProps) {
   const [showWalletDetails, setShowWalletDetails] = useState(false);
+  const [showDelegationManager, setShowDelegationManager] = useState(false);
+  const [showDelegationSetup, setShowDelegationSetup] = useState(false);
   const { wallet } = useWallet();
   const { user } = useAuth();
   const [openWarningModal, setOpenWarningModal] = useState(false);
+  
   const dropdownOptions = [
     {
-      icon: <ArrowsRightLeftIcon className="h-4 w-4" />,
-      label: "Withdraw",
+      icon: <UserPlusIcon className="h-4 w-4" />,
+      label: "Create Wallet for Email",
       onClick: () => {
-        if (process.env.NEXT_PUBLIC_CROSSMINT_CLIENT_API_KEY?.includes("staging")) {
-          setOpenWarningModal(true);
-        } else {
-          window.location.href = `https://pay.coinbase.com/v3/sell/input?${new URLSearchParams({
-            appId: process.env.NEXT_PUBLIC_COINBASE_APP_ID!,
-            addresses: JSON.stringify({ [wallet?.address || ""]: [wallet?.chain || ""] }),
-            redirectUrl: window.location.origin,
-            partnerUserId: user?.id!,
-            assets: JSON.stringify(["USDC"]),
-          })}`;
-        }
+        onCreateWalletClick();
+      },
+    },
+    {
+      icon: <ShoppingBagIcon className="h-4 w-4" />,
+      label: "Telegram Shopping",
+      onClick: () => {
+        setShowDelegationManager(true);
+      },
+    },
+    {
+      icon: <ArrowsRightLeftIcon className="h-4 w-4" />,
+      label: "Withdraw to Bank",
+      onClick: () => {
+        onWithdrawClick();
       },
     },
     {
@@ -68,6 +79,22 @@ export function DashboardSummary({ onDepositClick, onSendClick }: DashboardSumma
       </div>
       <WalletDetails onClose={() => setShowWalletDetails(false)} open={showWalletDetails} />
       <WarningModal open={openWarningModal} onClose={() => setOpenWarningModal(false)} />
+      <DelegationManager
+        open={showDelegationManager}
+        onClose={() => setShowDelegationManager(false)}
+        onSetupNew={() => {
+          setShowDelegationManager(false);
+          setShowDelegationSetup(true);
+        }}
+      />
+      <DelegationSetup
+        open={showDelegationSetup}
+        onClose={() => setShowDelegationSetup(false)}
+        onSuccess={() => {
+          setShowDelegationSetup(false);
+          setShowDelegationManager(true);
+        }}
+      />
     </Container>
   );
 }

@@ -42,12 +42,12 @@ export function ActivityFeed({ onDepositClick }: ActivityFeedProps) {
           {error && <div className="text-center text-red-500">{error.message}</div>}
           {!isLoading && !error && data?.events?.length && data?.events?.length > 0 ? (
             <ul className="w-full">
-              {data?.events.slice(0, 10).map((event) => {
+              {data?.events.slice(0, 10).map((event, index) => {
                 const isOutgoing =
                   event.from_address.toLowerCase() === wallet?.address.toLowerCase();
                 const counterparty = isOutgoing ? event.to_address : event.from_address;
                 return (
-                  <li key={event.transaction_hash} className="flex items-center gap-4 py-4">
+                  <li key={`${event.transaction_hash}-${index}`} className="flex items-center gap-4 py-4">
                     <div className="flex h-[50px] w-[50px]  items-center justify-center rounded-full bg-slate-50">
                       {isOutgoing ? (
                         <Image src="/arrow-up-right-icon.svg" alt="Sent" width={24} height={24} />

@@ -26,7 +26,10 @@ export function useProcessWithdrawal(userId?: string, wallet?: Wallet<Chain>) {
   const { refetch: refetchActivityFeed } = useActivityFeed();
   useEffect(() => {
     (async () => {
-      if (userId && wallet) {
+      // TODO: Replace with Circle integration
+      // Coinbase withdrawal processing temporarily disabled
+      // Will be replaced with Circle API in StablePago implementation
+      if (userId && wallet && process.env.NEXT_PUBLIC_COINBASE_ENABLED === "true") {
         const transactions = await getTransactions(userId);
         const transaction = transactions[0];
         if (

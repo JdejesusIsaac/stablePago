@@ -2,10 +2,16 @@ import Image from "next/image";
 import { useState } from "react";
 import { DepositModal } from "@/components/deposit";
 import { SendFundsModal } from "@/components/send-funds";
+// import { WithdrawModal } from "@/components/withdraw/WithdrawModal"; // Real version (needs Circle + Supabase)
+import { DemoWithdrawModal as WithdrawModal } from "@/components/withdraw/DemoWithdrawModal"; // Demo version (no backend needed)
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { useAuth } from "@crossmint/client-sdk-react-ui";
 import { NewProducts } from "./NewProducts";
 import { DashboardSummary } from "./dashboard-summary";
+import { DelegationCard } from "./dashboard-summary/DelegationCard";
+import { DelegationManager } from "./delegation/DelegationManager";
+import { DelegationSetup } from "./delegation/DelegationSetup";
+import { CreateWalletModal } from "./CreateWalletModal";
 
 interface MainScreenProps {
   walletAddress?: string;
@@ -14,6 +20,10 @@ interface MainScreenProps {
 export function MainScreen({ walletAddress }: MainScreenProps) {
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [showDelegationManager, setShowDelegationManager] = useState(false);
+  const [showDelegationSetup, setShowDelegationSetup] = useState(false);
+  const [showCreateWalletModal, setShowCreateWalletModal] = useState(false);
   const { logout } = useAuth();
 
   return (
@@ -30,7 +40,18 @@ export function MainScreen({ walletAddress }: MainScreenProps) {
         <DashboardSummary
           onDepositClick={() => setShowDepositModal(true)}
           onSendClick={() => setShowSendModal(true)}
+          onWithdrawClick={() => setShowWithdrawModal(true)}
+          onCreateWalletClick={() => setShowCreateWalletModal(true)}
         />
+        
+        {/* Delegation Card - Prominently displayed */}
+        <div className="mb-6 w-full max-w-5xl px-2">
+          <DelegationCard
+            onManageClick={() => setShowDelegationManager(true)}
+            onSetupClick={() => setShowDelegationSetup(true)}
+          />
+        </div>
+
         <NewProducts />
         <ActivityFeed onDepositClick={() => setShowDepositModal(true)} />
         <DepositModal
@@ -39,6 +60,31 @@ export function MainScreen({ walletAddress }: MainScreenProps) {
           walletAddress={walletAddress || ""}
         />
         <SendFundsModal open={showSendModal} onClose={() => setShowSendModal(false)} />
+        <WithdrawModal open={showWithdrawModal} onClose={() => setShowWithdrawModal(false)} />
+        
+        {/* Delegation Modals */}
+        <DelegationManager
+          open={showDelegationManager}
+          onClose={() => setShowDelegationManager(false)}
+          onSetupNew={() => {
+            setShowDelegationManager(false);
+            setShowDelegationSetup(true);
+          }}
+        />
+        <DelegationSetup
+          open={showDelegationSetup}
+          onClose={() => setShowDelegationSetup(false)}
+          onSuccess={() => {
+            setShowDelegationSetup(false);
+            setShowDelegationManager(true);
+          }}
+        />
+        
+        {/* Create Wallet Modal */}
+        <CreateWalletModal
+          open={showCreateWalletModal}
+          onClose={() => setShowCreateWalletModal(false)}
+        />
       </div>
     </div>
   );
