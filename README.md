@@ -156,6 +156,43 @@ withdraw({
   receives: "7,500 HTG"  // Instant to phone
 })
 ```
+**Telegram Bot Integration:**
+See the [crossmint-checkout-telegram-agent](https://github.com/Crossmint/examples/tree/main/apps/wallets/delegation/crossmint-checkout-telegram-agent) example for bot implementation.
+
+---
+
+### Withdraw to Bank (Circle)
+
+Withdraw USDC to a bank account using Circle's payout infrastructure. Currently supports wire transfers to US banks (Puerto Rico included).
+
+**How to use:**
+1. Click the menu (⋮) on the dashboard
+2. Select "Withdraw to Bank"
+3. First time: Add bank details (routing number, account number)
+4. Enter amount and confirm
+5. Track payout status in real-time
+
+**Circle Flow:**
+1. Create bank beneficiary (first time only)
+2. Create payout request
+3. Circle processes the transfer
+4. Funds arrive in bank account (1-2 business days)
+
+**Database:**
+- bank_beneficiaries - Stores linked bank accounts
+- fiat_payouts - Tracks payout status (pending → processing → succeeded/failed)
+
+**API Endpoints:**
+- POST /api/circle/create-beneficiary - Link bank account
+- POST /api/circle/create-payout - Initiate withdrawal
+- GET /api/circle/payout-status/:id - Check status
+
+**Circle Requirements:**
+- API key from Circle Console
+- Travel Rule compliance for payouts ≥ $3,000 (identity verification)
+- Sufficient balance in Circle account
+
+---
 
 ## Setup
 
