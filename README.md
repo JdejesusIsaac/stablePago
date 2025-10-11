@@ -161,6 +161,8 @@ See the [crossmint-checkout-telegram-agent](https://github.com/Crossmint/example
 
 ---
 
+
+
 ### Withdraw to Bank (Circle)
 
 Withdraw USDC to a bank account using Circle's payout infrastructure. Currently supports wire transfers to US banks (Puerto Rico included).
@@ -193,6 +195,31 @@ Withdraw USDC to a bank account using Circle's payout infrastructure. Currently 
 - Sufficient balance in Circle account
 
 ---
+
+## Using in production
+
+To deploy StablePago to production:
+
+### 1. Crossmint Production Setup
+
+Login to the [Crossmint production console](https://www.crossmint.com/console)
+Create production API keys with these scopes:
+users.create, users.read
+wallets.read, wallets.create
+wallets:transactions.create, wallets:transactions.sign, wallets:transactions.read
+wallets:balance.read
+wallets.fund
+wallets:signers.create, wallets:signers.read (for delegation)
+
+Update .env.local:
+env
+NEXT_PUBLIC_CROSSMINT_CLIENT_API_KEY=pk_live_...
+CROSSMINT_SERVER_SIDE_API_KEY=sk_live_...
+CROSSMINT_ENV=production
+
+Customize email templates in Console → Settings → Branding
+
+**⚠️ Note**: Non-custodial signers for Solana are undergoing security audit. Join [Telegram](https://t.me/crossmintdevs) for updates.
 
 ## Setup
 
