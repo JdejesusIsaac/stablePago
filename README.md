@@ -129,6 +129,12 @@ Let users shop via Telegram with spending controls:
 - Automated bill payments
 - Controlled spending for dependents
 
+  **Telegram Bot Integration:**
+See the [crossmint-checkout-telegram-agent](https://github.com/Crossmint/examples/tree/main/apps/wallets/delegation/crossmint-checkout-telegram-agent) example for bot implementation.
+
+---
+
+
 ### Withdraw to Bank (Circle)
 
 #### 🇵🇷 Puerto Rico
@@ -156,10 +162,6 @@ withdraw({
   receives: "7,500 HTG"  // Instant to phone
 })
 ```
-**Telegram Bot Integration:**
-See the [crossmint-checkout-telegram-agent](https://github.com/Crossmint/examples/tree/main/apps/wallets/delegation/crossmint-checkout-telegram-agent) example for bot implementation.
-
----
 
 
 
