@@ -138,12 +138,12 @@ class RemittanceAI {
 class FXOptimizerAgent {
   // Monitors rates 24/7 and executes at optimal times
   async optimizeTiming(transfer: Transfer) {
-    const prediction = await AI.drRates({
+    const rate = await AI.drRates({
       pair: "USDC/DOP",
       horizon: "24h"
     });
     
-    if (prediction.bestTime === "now") {
+    if (rate.bestTime === "now") {
       return executeImmediately();
     } else {
       return scheduleForOptimalRate(prediction.bestTime);
