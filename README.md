@@ -382,6 +382,13 @@ const compliance = {
   - <1 second finality
   - Native FX engine
   - Confidential transfers
+  - When Arc Launches:
+Create synthetic DOPC and HTGC stablecoins
+Enable direct Caribbean FX pairs
+Reduce fees from 3% to 0.5%
+Instant settlement vs hours
+  
+ https://github.com/circlefin/stablecoin-evm/blob/master/contracts/v1/FiatTokenV1.sol
 
 ## Support
 
