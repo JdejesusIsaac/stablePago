@@ -179,7 +179,7 @@ class LocalEconomyAgent {
 }
 ```
 
- ## Arc-Specific Features to Highlight
+ ## Arc-Specific Features 
 ```typescript
 const ArcIntegration = {
   // 1. USDC as gas (no ETH complexity!)
