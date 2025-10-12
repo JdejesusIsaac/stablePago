@@ -178,7 +178,9 @@ class LocalEconomyAgent {
   }
 }
 ```
-Arc-Specific Features to Highlight
+
+** Arc-Specific Features to Highlight:**
+```typescript
 const ArcIntegration = {
   // 1. USDC as gas (no ETH complexity!)
   gasSimplicity: "Granny never sees ETH, just USDC",
@@ -192,6 +194,7 @@ const ArcIntegration = {
   // 4. Confidential transfers
   privacy: "Hide remittance amounts from public"
 }
+```
 
 ### Telegram Shopping Delegation
 
