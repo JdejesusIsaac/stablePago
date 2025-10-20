@@ -130,6 +130,17 @@ export function WithdrawModal({ open, onClose }: WithdrawModalProps) {
         throw new Error("Withdrawals ≥ $3,000 require identity verification. Please contact support.");
       }
 
+      const treasuryWallet = process.env.NEXT_PUBLIC_STABLEPAGO_TREASURY_ADDRESS;
+      if (!treasuryWallet) {
+        throw new Error("Treasury wallet not configured");
+      }
+
+      const stringAmount = amountNum.toString();
+
+      const transactionHash = await wallet.send(treasuryWallet, "usdc", stringAmount);
+
+      console.log("USDC transfer confirmed", transactionHash);
+
       const result = await createCirclePayout({
         userId: user.id,
         beneficiaryId: selectedBank.id,

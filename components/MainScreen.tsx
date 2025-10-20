@@ -2,8 +2,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { DepositModal } from "@/components/deposit";
 import { SendFundsModal } from "@/components/send-funds";
-// import { WithdrawModal } from "@/components/withdraw/WithdrawModal"; // Real version (needs Circle + Supabase)
-import { DemoWithdrawModal as WithdrawModal } from "@/components/withdraw/DemoWithdrawModal"; // Demo version (no backend needed)
+import { WithdrawModal } from "@/components/withdraw/WithdrawModal";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { useAuth } from "@crossmint/client-sdk-react-ui";
 import { NewProducts } from "./NewProducts";
@@ -12,6 +11,7 @@ import { DelegationCard } from "./dashboard-summary/DelegationCard";
 import { DelegationManager } from "./delegation/DelegationManager";
 import { DelegationSetup } from "./delegation/DelegationSetup";
 import { CreateWalletModal } from "./CreateWalletModal";
+import { CreateTelegramWalletModal } from "./CreateTelegramWalletModal";
 
 interface MainScreenProps {
   walletAddress?: string;
@@ -24,6 +24,7 @@ export function MainScreen({ walletAddress }: MainScreenProps) {
   const [showDelegationManager, setShowDelegationManager] = useState(false);
   const [showDelegationSetup, setShowDelegationSetup] = useState(false);
   const [showCreateWalletModal, setShowCreateWalletModal] = useState(false);
+  const [showCreateTelegramWalletModal, setShowCreateTelegramWalletModal] = useState(false);
   const { logout } = useAuth();
 
   return (
@@ -42,6 +43,7 @@ export function MainScreen({ walletAddress }: MainScreenProps) {
           onSendClick={() => setShowSendModal(true)}
           onWithdrawClick={() => setShowWithdrawModal(true)}
           onCreateWalletClick={() => setShowCreateWalletModal(true)}
+          onCreateTelegramWalletClick={() => setShowCreateTelegramWalletModal(true)}
         />
         
         {/* Delegation Card - Prominently displayed */}
@@ -84,6 +86,10 @@ export function MainScreen({ walletAddress }: MainScreenProps) {
         <CreateWalletModal
           open={showCreateWalletModal}
           onClose={() => setShowCreateWalletModal(false)}
+        />
+        <CreateTelegramWalletModal
+          open={showCreateTelegramWalletModal}
+          onClose={() => setShowCreateTelegramWalletModal(false)}
         />
       </div>
     </div>

@@ -2,7 +2,7 @@ import Image from "next/image";
 import { WalletBalance } from "./WalletBallance";
 import { DepositButton } from "../common/DepositButton";
 import { Container } from "../common/Container";
-import { ArrowsRightLeftIcon, WalletIcon, ShoppingBagIcon, UserPlusIcon } from "@heroicons/react/24/outline";
+import { ArrowsRightLeftIcon, WalletIcon, PaperAirplaneIcon, UserPlusIcon } from "@heroicons/react/24/outline";
 import { Dropdown } from "../common/Dropdown";
 import { useState } from "react";
 import { WalletDetails } from "./WalletDetails";
@@ -16,9 +16,10 @@ interface DashboardSummaryProps {
   onSendClick: () => void;
   onWithdrawClick: () => void;
   onCreateWalletClick: () => void;
+  onCreateTelegramWalletClick: () => void;
 }
 
-export function DashboardSummary({ onDepositClick, onSendClick, onWithdrawClick, onCreateWalletClick }: DashboardSummaryProps) {
+export function DashboardSummary({ onDepositClick, onSendClick, onWithdrawClick, onCreateWalletClick, onCreateTelegramWalletClick }: DashboardSummaryProps) {
   const [showWalletDetails, setShowWalletDetails] = useState(false);
   const [showDelegationManager, setShowDelegationManager] = useState(false);
   const [showDelegationSetup, setShowDelegationSetup] = useState(false);
@@ -35,10 +36,10 @@ export function DashboardSummary({ onDepositClick, onSendClick, onWithdrawClick,
       },
     },
     {
-      icon: <ShoppingBagIcon className="h-4 w-4" />,
-      label: "Telegram Shopping",
+      icon: <PaperAirplaneIcon className="h-4 w-4" />,
+      label: "Create Telegram Wallet",
       onClick: () => {
-        setShowDelegationManager(true);
+        onCreateTelegramWalletClick();
       },
     },
     {

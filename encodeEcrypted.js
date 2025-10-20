@@ -1,0 +1,12 @@
+const forge = require("node-forge");
+
+const entitySecret = forge.util.hexToBytes("dzXiwYxgLNBmIXQAG9jgAgvObb5msBYglFWD7AaWbGvcHBXIAn2q6olMuMTF9lLfLQ4VjQ6Vg5vYBuiZ/OigqG2HTSQab6amcTUJylpvq2GqNorXrABs1Od4i9DEJGnOSMzC4cvBdh2/9PB+ClAFnZeRPO/trk4cp41dLr5wNKMzVF6GDaaOOL0vTDm+I+TWzg01cO3wYx34XLYWvqxRUhaVyGtN4/GI6w0vxQKBqCyXfKeHdQ0fzR8DT3KZR+K9kLzrnij9XGgP8B2OH637MZyr3zgVFO6I6WKlmP25nxv+niajpWyYi42v2UBEUSTsuvx/V5NqGkBp+hjtgJNj+fHQM2tYmv/tqGKN1Sc/jTQC06fEjTn8DomgMt6KBfl4lB8PqpfZA4X9p82/qyN488wHx2mWp1igJTnf51c3KSJ5JthZ8Dyxq+U3DPQfSFUHWbtnU/tv+6r8X2u4wMi0zhQVcc3EhPqUFy5EeaqOiUdxDhWT9dM01IwFyF/ZldRKRXP8sfBGuFJAHqeRM/dMO+MvZkDjh+DpcCRzfRlxgIeKfX/5qq6xYEeQb88guUb2SQeDlfRhS0sDY6CKAN7LzomTvstq3HFfC8VUCmdCJuH5iiQtItRPWjlmj+uicAsFUp9l3MsG8TAbcRyP3+d+sfLMHSDOogpHcOIZlmivXLk=");
+const publicKey = forge.pki.publicKeyFromPem("-----BEGIN PUBLIC KEY-----\nMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAx+VZKV3OEOpxumGUZbPh\niLQAJwsn6ejpiVezuHQ9hd13ejBBUzOTK4fe8fIMDkwxqJ3WjzYwhy7OMVoVGuhw\nWVuYkCQv545nAdqXKo7n5g8N7sD0+lhGRrN8iM2HsBJMfhOUncVbmVAji89GMQr9\n1MPQI+GZQUO0iys6grVpu/CPoLq1FJuHKhvpE1S1DFUVEfebbRUKY5UNGFv09+yV\noKDyEMM9Q9rH7XSp3bODXrRmLnQToJ0j7rcBAfxzuzDRNkJg7XxRGj2F9F36bVkB\nLrCcADGa9t77DM2mV4PFaIfFDK+1u4mBJKcozZ9NolGzdR72ycyXcgTu6/8JX4wd\ncaPfgqE122k+NzUHnjfXoAjuEmiNiCL10bitSD9UXPLilcHvkk4hsKU2DHfJPp2T\nXjlKHMECMPsQXvjxSkYFTCnqT11NPH6l+MDMrX8IabVFTYfxBDAsTPMKPomXsmzS\njVgUIQPjH+jKOy0+2PRaqIXcLHyvhMwpZMF5DPudc+OTyP6bTvHHfNJzn1f1tgF3\nGc3emMBUCtHM0dZn0ZlczBgE77carGkL4u8SI7xm/ASBTh5x9ZtG0BQRZUSKHwIy\nL3jaf123hi+Y6LkGOl364vo84ErCpB082sCA0Xvs4smYC34RVmHh3idZnsW9+FzB\n7EyNeNEtLP8nGv2gw1ZU4d8CAwEAAQ==\n-----END PUBLIC KEY-----\n");
+const encryptedData = publicKey.encrypt(entitySecret, "RSA-OAEP", {
+  md: forge.md.sha256.create(),
+  mgf1: {
+    md: forge.md.sha256.create(),
+  },
+});
+
+console.log(forge.util.encode64(encryptedData));
