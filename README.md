@@ -107,6 +107,77 @@ await createWallet("grandma@gmail.com")
 - No app download required
 - Access via email login
 - Automatic key management
+- Telegram Cicle Eleven Labs agent
+
+
+
+
+
+# Telegram Bot
+Voice Message → Telegram Bot → VoiceCommandService
+                                      ↓
+                               ElevenLabs STT
+                                      ↓
+                               Text Transcript
+                                      ↓
+                               Intent Parser
+                                      ↓
+                               Command Executor
+                                      ↓
+                               CircleService (Wallet Operations)
+
+Our integrated Telegram agent now supports **natural-language voice control** backed by ElevenLabs Speech-to-Text. Users can send a voice message, and the bot will parse it through [VoiceCommandService.ts](cci:7://file:///Users/juanisaac/Desktop/stablepagoV2/stablePago/services/VoiceCommandService.ts:0:0-0:0), convert intent into structured commands, and execute wallet operations handled in [TelegramService.ts](cci:7://file:///Users/juanisaac/Desktop/stablepagoV2/stablePago/services/TelegramService.ts:0:0-0:0). This unlocks hands-free management of StablePago wallets—including balance checks, transfers, and network switches—while retaining all existing text-based commands.
+
+## Voice Command Highlights
+- **ElevenLabs STT** converts incoming Telegram audio to text for downstream parsing.
+- **Command parsing pipeline** in [VoiceCommandService.ts](cci:7://file:///Users/juanisaac/Desktop/stablepagoV2/stablePago/services/VoiceCommandService.ts:0:0-0:0) extracts intents (send funds, switch networks, etc.) and normalizes parameters like destination addresses and networks.
+- **Type-safe execution** in [TelegramService.ts](cci:7://file:///Users/juanisaac/Desktop/stablepagoV2/stablePago/services/TelegramService.ts:0:0-0:0) validates wallet addresses and CCTP domains before dispatching sensitive operations, ensuring safety for both voice and text flows.
+
+## Bot Commands
+- **/start** Initialize the bot and receive a welcome message.
+- **/createWallet** Create a new wallet.
+- **/address** Retrieve your wallet address.
+- **/walletId** Retrieve your wallet ID.
+- **/balance** Check your wallet’s USDC balance.
+- **/network \<network\>** Switch to a different network.
+- **/networks** List all available networks.
+- **/send \<address\> \<amount\>** Send USDC to another address.  
+  Example:
+  ```bash
+  /send 0x742d35Cc6634C0532925a3b844Bc454e4438f44e 10
+  ```
+  The amount is denominated in USDC. Transaction fees are automatically set to LOW; ensure you hold enough USDC and native gas tokens.
+- **/cctp \<destination-network\> \<address\> \<amount\>** Transfer USDC across supported chains.  
+  Example:
+  ```bash
+  /cctp AVAX-FUJI 0x742d35Cc6634C0532925a3b844Bc454e4438f44e 10
+  ```
+  Runs the full CCTP flow—approval, burn, mint—and reports each step. Requires wallets on both source and destination networks.
+
+  ## 🎤 Supported Voice Commands
+
+### Non-Financial Commands (No Confirmation Required)
+
+| Command | Example Phrases | Response |
+|---------|----------------|----------|
+| **Create Wallet** | • "Create a wallet"<br>• "Make me a new wallet"<br>• "Setup wallet" | Creates wallet on current network |
+| **Check Balance** | • "Check my balance"<br>• "How much USDC do I have?"<br>• "Show balance" | Returns USDC balance |
+| **Get Address** | • "What's my wallet address?"<br>• "Show my address" | Returns wallet address |
+| **Get Wallet ID** | • "Show my wallet ID"<br>• "What's my wallet ID?" | Returns Circle wallet ID |
+| **Switch Network** | • "Switch to Base Sepolia"<br>• "Change to Arbitrum" | Changes active network |
+| **List Networks** | • "List networks"<br>• "What networks are available?" | Shows all networks |
+| **Help** | • "Help"<br>• "What can you do?"<br>• "Commands" | Shows command guide |
+
+### 💰 Financial Commands (Requires Confirmation)
+
+| Command | Example Phrases | Security |
+|---------|----------------|----------|
+| **Send USDC** | • "Send 10 USDC to 0x1234..."<br>• "Transfer 25.5 USDC to 0xabcd..." | ⚠️ Requires "CONFIRM" reply within 30s |
+| **Cross-Chain Transfer** | • "Bridge 50 USDC to Arbitrum at 0x1234..."<br>• "CCTP 100 USDC to Base at 0xabcd..." | ⚠️ Requires "CONFIRM" reply within 30s |
+
+
+
+# whats coming
 
  Real-World Assets (RWA)
 Position StablePago as "AI-Powered Caribbean Remittance Infrastructure" - the first autonomous agent system that converts remittances into real economic activity.
