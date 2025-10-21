@@ -1,81 +1,74 @@
-// services/TelegramService.ts
-import  TelegramBot  from 'node-telegram-bot-api';
+// services/TelegramService.ts (Updated with Voice Commands)
+import TelegramBot from 'node-telegram-bot-api';
 import config from "@/config";
-import circleService from "./circleService"; // if you export a singleton + class
+import circleService from "./circleService";
 import storageService from "./storageService";
 import networkService, { type NetworkKey } from "./networkService";
-import { CCTP, type DomainKey } from "@/config/cctp";   
+import voiceCommandService, { type ParsedCommand } from "./VoiceCommandService";
+import { CCTP, type DomainKey } from "@/config/cctp";
 
-/** What we minimally expect from networkService.getCurrentNetwork() */
 interface CurrentNetworkInfo {
-  name: DomainKey | string;      // keep wide in case your current impl isn't narrowed yet
+  name: DomainKey | string;
   isTestnet?: boolean;
   usdcAddress?: `0x${string}`;
   usdcTokenId?: string;
 }
 
-/** Stored wallet shape keyed by network name */
 type WalletEntry = {
   walletId: string;
   address: `0x${string}`;
 };
-type UserWallets = Record<string, WalletEntry>; // keys are network names (e.g., "ARB-SEPOLIA")
+type UserWallets = Record<string, WalletEntry>;
 
 const isNetworkKey = (value: string): value is NetworkKey => {
   const networks = networkService.getAllNetworks();
   return Object.prototype.hasOwnProperty.call(networks, value);
 };
 
-/** Storage service surface we rely on */
-interface StorageService {
-  getWallet(userId: string | number): UserWallets | undefined;
-  saveWallet(userId: string | number, data: UserWallets): void;
-}
+const isDomainKey = (value: string): value is DomainKey => {
+  return Object.prototype.hasOwnProperty.call(CCTP.domains, value);
+};
 
-/** Circle service surface we call (match your TS implementation) */
-interface CircleSvc {
-  init(): Promise<unknown>;
-  createWallet(): Promise<{ walletId: string; walletData: { data: { wallets: { address: `0x${string}` }[] } } }>;
-  getWalletBalance(walletId: string): Promise<{ usdc: string; network: string }>;
-  sendTransaction(walletId: string, destinationAddress: `0x${string}`, amount: string): Promise<{ id: string }>;
-  crossChainTransfer(params: {
-    walletId: string;
-    destinationNetwork: DomainKey | string;
-    destinationAddress: `0x${string}`;
-    amount: string;
-    chatId: string | number;
-    destinationWalletId: string;
-  }): Promise<{ approveTx: string; burnTx: string; receiveTx: string }>;
+/** Pending confirmations for financial operations */
+interface PendingConfirmation {
+  command: ParsedCommand;
+  expiresAt: number;
+  chatId: number;
+  messageId: number;
 }
 
 class TelegramService {
   private bot: TelegramBot;
-  private circleService: CircleSvc;
-  private storage: StorageService;
+  private pendingConfirmations: Map<number, PendingConfirmation>;
+  private readonly confirmationTimeout = 30000; // 30 seconds
 
   constructor() {
     if (!config?.telegram?.botToken) {
       throw new Error("Telegram bot token is missing");
     }
+
     this.bot = new TelegramBot(config.telegram.botToken, { polling: true });
-    this.circleService = circleService as unknown as CircleSvc;
-    this.storage = storageService as unknown as StorageService;
+    this.pendingConfirmations = new Map();
 
     this.initializeCircleSDK().catch((error: unknown) => {
       console.error("Failed to initialize Circle SDK:", error);
     });
+
     this.setupCommands();
+    this.setupVoiceHandler();
+    this.cleanupExpiredConfirmations();
   }
 
   private async initializeCircleSDK(): Promise<void> {
     try {
-      await this.circleService.init();
+      await circleService.init();
     } catch (error) {
       console.error("Error initializing Circle SDK:", error);
     }
   }
 
   private setupCommands(): void {
+    // Standard text commands
     this.bot.onText(/\/start/, this.handleStart.bind(this));
     this.bot.onText(/\/createWallet/, this.handleCreateWallet.bind(this));
     this.bot.onText(/\/balance/, this.handleBalance.bind(this));
@@ -85,21 +78,603 @@ class TelegramService {
     this.bot.onText(/\/network (.+)/, this.handleNetwork.bind(this));
     this.bot.onText(/\/networks/, this.handleListNetworks.bind(this));
     this.bot.onText(/\/cctp (.+)/, this.handleCCTP.bind(this));
+
+    // Handle non-command text messages (for confirmations only)
+    // This runs AFTER command handlers, so commands take priority
+    this.bot.on("message", this.handleTextMessage.bind(this));
   }
 
+  /**
+   * Setup voice message handler
+   */
+  private setupVoiceHandler(): void {
+    this.bot.on("voice", async (msg) => {
+      const chatId = msg.chat.id;
+      const userId = msg.from?.id;
+
+      if (!userId) return;
+
+      const voice = msg.voice;
+      if (!voice) {
+        await this.bot.sendMessage(
+          chatId,
+          "❌ Sorry, I couldn't access your voice message. Please try again."
+        );
+        return;
+      }
+
+      try {
+        // Get voice file
+        const file = await this.bot.getFile(voice.file_id);
+        const fileUrl = `https://api.telegram.org/file/bot${config.telegram.botToken}/${file.file_path}`;
+
+        // Show processing message
+        const processingMsg = await this.bot.sendMessage(
+          chatId,
+          "🎤 Processing your voice command..."
+        );
+
+        // Process voice command
+        const result = await voiceCommandService.processVoiceCommand(
+          fileUrl,
+          voice.mime_type || "audio/ogg"
+        );
+
+        // Delete processing message
+        await this.bot.deleteMessage(chatId, processingMsg.message_id);
+
+        // Handle errors
+        if (result.error) {
+          await this.bot.sendMessage(
+            chatId,
+            voiceCommandService.getErrorMessage(result.error)
+          );
+          return;
+        }
+
+        // Show what was understood
+        await this.bot.sendMessage(
+          chatId,
+          `📝 I heard: "${result.transcription.text}"\n\n` +
+            voiceCommandService.formatCommand(result.command)
+        );
+
+        // Execute command
+        await this.executeVoiceCommand(result.command, chatId, userId, msg.message_id);
+      } catch (error) {
+        console.error("Voice command error:", error);
+        await this.bot.sendMessage(
+          chatId,
+          "❌ Sorry, I couldn't process your voice message. Please try again or use text commands."
+        );
+      }
+    });
+  }
+
+  /**
+   * Execute parsed voice command
+   */
+  private async executeVoiceCommand(
+    command: ParsedCommand,
+    chatId: number,
+    userId: number,
+    messageId: number
+  ): Promise<void> {
+    // Check if command requires confirmation
+    if (command.requiresConfirmation) {
+      await this.requestConfirmation(command, chatId, userId, messageId);
+      return;
+    }
+
+    // Execute non-sensitive commands immediately
+    switch (command.type) {
+      case "CREATE_WALLET":
+        await this.handleCreateWalletVoice(chatId, userId);
+        break;
+
+      case "CHECK_BALANCE":
+        await this.handleBalanceVoice(chatId, userId);
+        break;
+
+      case "GET_ADDRESS":
+        await this.handleAddressVoice(chatId, userId);
+        break;
+
+      case "GET_WALLET_ID":
+        await this.handleWalletIdVoice(chatId, userId);
+        break;
+
+      case "SWITCH_NETWORK":
+        if (command.params?.network) {
+          await this.handleNetworkVoice(chatId, command.params.network);
+        }
+        break;
+
+      case "LIST_NETWORKS":
+        await this.handleListNetworksVoice(chatId);
+        break;
+
+      case "HELP":
+        await this.handleHelpVoice(chatId);
+        break;
+
+      case "UNKNOWN":
+        await this.bot.sendMessage(
+          chatId,
+          "❓ I didn't understand that command.\n\n" +
+            "Try saying things like:\n" +
+            "• 'Create a wallet'\n" +
+            "• 'Check my balance'\n" +
+            "• 'Show my address'\n" +
+            "• 'Send 10 USDC to 0x...'\n\n" +
+            "Or type /help for all commands."
+        );
+        break;
+    }
+  }
+
+  /**
+   * Request confirmation for sensitive operations
+   */
+  private async requestConfirmation(
+    command: ParsedCommand,
+    chatId: number,
+    userId: number,
+    messageId: number
+  ): Promise<void> {
+    // Store pending confirmation
+    this.pendingConfirmations.set(userId, {
+      command,
+      expiresAt: Date.now() + this.confirmationTimeout,
+      chatId,
+      messageId,
+    });
+
+    // Send confirmation request
+    await this.bot.sendMessage(
+      chatId,
+      voiceCommandService.getConfirmationMessage(command)
+    );
+
+    // Auto-cleanup after timeout
+    setTimeout(() => {
+      if (this.pendingConfirmations.has(userId)) {
+        this.pendingConfirmations.delete(userId);
+        this.bot.sendMessage(
+          chatId,
+          "⏱️ Confirmation timeout. Command cancelled for your security."
+        );
+      }
+    }, this.confirmationTimeout);
+  }
+
+  /**
+   * Handle text messages for confirmations
+   * Only processes non-command messages when there's a pending confirmation
+   */
+  private async handleTextMessage(msg: TelegramBot.Message): Promise<void> {
+    const userId = msg.from?.id;
+    const chatId = msg.chat.id;
+    const text = msg.text?.trim();
+
+    if (!userId || !text) return;
+
+    // Ignore commands (they're handled by onText handlers)
+    if (text.startsWith('/')) return;
+
+    // Ignore voice messages (handled separately)
+    if (msg.voice) return;
+
+    // Check for pending confirmation
+    const pending = this.pendingConfirmations.get(userId);
+    if (!pending) return; // No pending confirmation, ignore message
+
+    const upperText = text.toUpperCase();
+
+    // Check if confirmation expired
+    if (Date.now() > pending.expiresAt) {
+      this.pendingConfirmations.delete(userId);
+      await this.bot.sendMessage(chatId, "⏱️ Confirmation expired. Please try again.");
+      return;
+    }
+
+    // Handle confirmation response
+    if (upperText === "CONFIRM") {
+      this.pendingConfirmations.delete(userId);
+      await this.bot.sendMessage(chatId, "✅ Confirmed. Processing...");
+      await this.executeConfirmedCommand(pending.command, chatId, userId);
+    } else if (upperText === "CANCEL") {
+      this.pendingConfirmations.delete(userId);
+      await this.bot.sendMessage(chatId, "❌ Command cancelled.");
+    }
+    // Ignore other text when waiting for confirmation
+  }
+
+  /**
+   * Execute confirmed sensitive command
+   */
+  private async executeConfirmedCommand(
+    command: ParsedCommand,
+    chatId: number,
+    userId: number
+  ): Promise<void> {
+    try {
+      switch (command.type) {
+        case "SEND":
+          if (
+            command.params?.amount &&
+            command.params?.address &&
+            this.isHexAddress(command.params.address)
+          ) {
+            await this.executeSend(
+              chatId,
+              userId,
+              command.params.address,
+              command.params.amount
+            );
+          }
+          break;
+
+        case "CROSS_CHAIN_TRANSFER":
+          if (
+            command.params?.amount &&
+            command.params?.address &&
+            this.isHexAddress(command.params.address)
+          ) {
+            const destinationNetwork = command.params.destinationNetwork?.toUpperCase();
+            if (!destinationNetwork || !isDomainKey(destinationNetwork)) {
+              await this.bot.sendMessage(
+                chatId,
+                `❌ Unsupported destination network: ${command.params?.destinationNetwork ?? "unknown"}`
+              );
+              break;
+            }
+
+            await this.executeCCTP(
+              chatId,
+              userId,
+              destinationNetwork,
+              command.params.address,
+              command.params.amount
+            );
+          }
+          break;
+      }
+    } catch (error) {
+      console.error("Confirmed command execution error:", error);
+      await this.bot.sendMessage(
+        chatId,
+        `❌ Error: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    }
+  }
+
+  /**
+   * Voice command implementations
+   */
+
+  private async handleCreateWalletVoice(chatId: number, userId: number): Promise<void> {
+    const currentNetwork = networkService.getCurrentNetwork() as CurrentNetworkInfo;
+    const networkName = String(currentNetwork.name);
+
+    try {
+      await circleService.init();
+      const userWallets = storageService.getWallet(userId) || {};
+
+      if (userWallets[networkName]) {
+        await this.bot.sendMessage(
+          chatId,
+          `✅ You already have a wallet on ${networkName}!\n` +
+            `Address: ${userWallets[networkName].address}`
+        );
+        return;
+      }
+
+      const walletResponse = await circleService.createWallet();
+      const firstWallet = walletResponse?.walletData?.data?.wallets?.[0];
+
+      if (!firstWallet) {
+        throw new Error("Failed to create wallet");
+      }
+
+      storageService.saveWallet(userId, {
+        ...(storageService.getWallet(userId) || {}),
+        [networkName]: {
+          walletId: walletResponse.walletId,
+          address: firstWallet.address,
+        },
+      });
+
+      await this.bot.sendMessage(
+        chatId,
+        `✅ Wallet created on ${networkName}!\n\n` +
+          `📍 Address: ${firstWallet.address}\n\n` +
+          `You can now receive and send USDC!`
+      );
+    } catch (error) {
+      console.error("Create wallet error:", error);
+      await this.bot.sendMessage(chatId, "❌ Failed to create wallet. Please try again.");
+    }
+  }
+
+  private async handleBalanceVoice(chatId: number, userId: number): Promise<void> {
+    const currentNetworkName = String(
+      (networkService.getCurrentNetwork() as CurrentNetworkInfo).name
+    );
+
+    try {
+      const wallets = storageService.getWallet(userId);
+      if (!wallets || !wallets[currentNetworkName]) {
+        await this.bot.sendMessage(
+          chatId,
+          "❌ No wallet found. Say 'create a wallet' first."
+        );
+        return;
+      }
+
+      const balance = await circleService.getWalletBalance(
+        wallets[currentNetworkName].walletId
+      );
+      await this.bot.sendMessage(
+        chatId,
+        `💰 Balance on ${balance.network}:\n\n` +
+          `${balance.usdc} USDC`
+      );
+    } catch (error) {
+      console.error("Balance error:", error);
+      await this.bot.sendMessage(chatId, "❌ Error getting balance. Try again later.");
+    }
+  }
+
+  private async handleAddressVoice(chatId: number, userId: number): Promise<void> {
+    const currentNetworkName = String(
+      (networkService.getCurrentNetwork() as CurrentNetworkInfo).name
+    );
+    const wallets = storageService.getWallet(userId);
+
+    if (!wallets || !wallets[currentNetworkName]) {
+      await this.bot.sendMessage(
+        chatId,
+        `❌ No wallet found for ${currentNetworkName}. Say 'create a wallet' first.`
+      );
+      return;
+    }
+
+    await this.bot.sendMessage(
+      chatId,
+      `📍 Your wallet address on ${currentNetworkName}:\n\n` +
+        `\`${wallets[currentNetworkName].address}\``,
+      { parse_mode: "Markdown" }
+    );
+  }
+
+  private async handleWalletIdVoice(chatId: number, userId: number): Promise<void> {
+    const currentNetworkName = String(
+      (networkService.getCurrentNetwork() as CurrentNetworkInfo).name
+    );
+    const wallets = storageService.getWallet(userId);
+
+    if (!wallets || !wallets[currentNetworkName]) {
+      await this.bot.sendMessage(
+        chatId,
+        `❌ No wallet found for ${currentNetworkName}.`
+      );
+      return;
+    }
+
+    await this.bot.sendMessage(
+      chatId,
+      `🆔 Your wallet ID on ${currentNetworkName}:\n\n` +
+        `\`${wallets[currentNetworkName].walletId}\``,
+      { parse_mode: "Markdown" }
+    );
+  }
+
+  private async handleNetworkVoice(chatId: number, networkName: string): Promise<void> {
+    const upper = networkName.toUpperCase();
+
+    if (!isNetworkKey(upper)) {
+      await this.bot.sendMessage(
+        chatId,
+        `❌ Invalid network: ${networkName}\n\nSay "list networks" to see available options.`
+      );
+      return;
+    }
+
+    try {
+      const net = networkService.setNetwork(upper);
+      await this.bot.sendMessage(
+        chatId,
+        `✅ Switched to ${net.name} ${net.isTestnet ? "(Testnet)" : ""}\n\n` +
+          `USDC Address: ${net.usdcAddress ?? "N/A"}`
+      );
+    } catch (error) {
+      await this.bot.sendMessage(chatId, `❌ Error switching network: ${networkName}`);
+    }
+  }
+
+  private async handleListNetworksVoice(chatId: number): Promise<void> {
+    const nets = networkService.getAllNetworks() as Record<
+      string,
+      { name: string; isTestnet?: boolean }
+    >;
+
+    const networksList = Object.values(nets)
+      .map((n) => `• ${n.name} ${n.isTestnet ? "(Testnet)" : ""}`)
+      .join("\n");
+
+    await this.bot.sendMessage(
+      chatId,
+      `🌐 Available networks:\n\n${networksList}\n\n` +
+        `Say "switch to [network]" to change networks.`
+    );
+  }
+
+  private async handleHelpVoice(chatId: number): Promise<void> {
+    await this.bot.sendMessage(
+      chatId,
+      `🎙️ Voice Commands:\n\n` +
+        `💬 Just say what you want to do!\n\n` +
+        `Examples:\n` +
+        `• "Create a wallet"\n` +
+        `• "Check my balance"\n` +
+        `• "Show my address"\n` +
+        `• "Send 10 USDC to 0x..."\n` +
+        `• "Switch to Base Sepolia"\n` +
+        `• "List networks"\n\n` +
+        `💡 For cross-chain transfers:\n` +
+        `"Bridge 50 USDC to Arbitrum at 0x..."\n\n` +
+        `🔐 Financial operations require confirmation for security.`
+    );
+  }
+
+  /**
+   * Execute send transaction
+   */
+  private async executeSend(
+    chatId: number,
+    userId: number,
+    destinationAddress: `0x${string}`,
+    amount: string
+  ): Promise<void> {
+    const currentNetworkName = String(
+      (networkService.getCurrentNetwork() as CurrentNetworkInfo).name
+    );
+    const wallets = storageService.getWallet(userId);
+
+    if (!wallets || !wallets[currentNetworkName]) {
+      throw new Error(`No wallet found for ${currentNetworkName}`);
+    }
+
+    await this.bot.sendMessage(chatId, `Processing transaction on ${currentNetworkName}...`);
+
+    const txResponse = await circleService.sendTransaction(
+      wallets[currentNetworkName].walletId,
+      destinationAddress,
+      amount
+    );
+
+    await this.bot.sendMessage(
+      chatId,
+      `✅ Transaction submitted!\n\n` +
+        `Amount: ${amount} USDC\n` +
+        `To: ${destinationAddress}\n` +
+        `Transaction ID: ${txResponse.id}`
+    );
+  }
+
+  private isHexAddress(address: string): address is `0x${string}` {
+    return /^0x[0-9a-fA-F]{40}$/.test(address);
+  }
+
+  /**
+   * Execute CCTP transfer
+   */
+  private async executeCCTP(
+    chatId: number,
+    userId: number,
+    destinationNetwork: DomainKey,
+    destinationAddress: `0x${string}`,
+    amount: string
+  ): Promise<void> {
+    const wallet = storageService.getWallet(userId);
+    if (!wallet) {
+      throw new Error("No wallet found");
+    }
+
+    const currentNetwork = networkService.getCurrentNetwork() as CurrentNetworkInfo;
+    const currentKey = String(currentNetwork.name);
+    const userWallet = wallet[currentKey];
+
+    if (!userWallet) {
+      throw new Error(`No wallet found for ${currentKey}`);
+    }
+
+    const destinationWallet = wallet[destinationNetwork];
+    if (!destinationWallet) {
+      throw new Error(
+        `No wallet found for ${destinationNetwork}. Create one first with "create wallet".`
+      );
+    }
+
+    await this.bot.sendMessage(chatId, "🌉 Initiating cross-chain transfer...");
+
+    const result = await circleService.crossChainTransfer({
+      walletId: userWallet.walletId,
+      destinationNetwork,
+      destinationAddress,
+      amount,
+      chatId,
+      destinationWalletId: destinationWallet.walletId,
+    });
+
+    await this.bot.sendMessage(
+      chatId,
+      `✅ Cross-chain transfer complete!\n\n` +
+        `From: ${currentKey}\n` +
+        `To: ${destinationNetwork}\n` +
+        `Amount: ${amount} USDC\n\n` +
+        `Transactions:\n` +
+        `Approve: ${result.approveTx}\n` +
+        `Burn: ${result.burnTx}\n` +
+        `Receive: ${result.receiveTx}`
+    );
+  }
+
+  /**
+   * Cleanup expired confirmations periodically
+   */
+  private cleanupExpiredConfirmations(): void {
+    setInterval(() => {
+      const now = Date.now();
+      for (const [userId, pending] of this.pendingConfirmations.entries()) {
+        if (now > pending.expiresAt) {
+          this.pendingConfirmations.delete(userId);
+        }
+      }
+    }, 60000); // Cleanup every minute
+  }
+
+  // Original command handlers remain the same
   private async handleStart(msg: TelegramBot.Message): Promise<void> {
     const chatId = msg.chat.id;
     const message =
-      `Welcome to Circle Wallet Bot!\n\nCommands:\n` +
+      `Welcome to Circle Wallet Bot! 🎙️\n\n` +
+      `Choose your preferred method:\n\n` +
+      `💬 **Text Commands:**\n` +
       `/createWallet - Create a wallet\n` +
       `/address - Get wallet address\n` +
-      `/walletId - Get wallet ID\n` +
       `/balance - Check USDC balance\n` +
       `/send <address> <amount> - Send USDC\n` +
       `/network <network> - Switch network\n` +
-      `/networks - List available networks\n` +
-      `/cctp <destination-network> <address> <amount> - Cross-chain transfer`;
-    await this.bot.sendMessage(chatId, message);
+      `/networks - List networks\n` +
+      `/cctp <network> <address> <amount> - Cross-chain transfer\n\n` +
+      `🎤 **OR use voice messages:**\n` +
+      `"Create a wallet"\n` +
+      `"Check my balance"\n` +
+      `"Send 10 USDC to 0x..."\n\n` +
+      `👆 Both work the same way - use whatever you prefer!`;
+
+    await this.bot.sendMessage(chatId, message, { parse_mode: "Markdown" });
+  }
+
+  // Keep all original handlers (handleCreateWallet, handleBalance, etc.)
+  // ... [rest of the original implementation]
+
+  private async handleCreateWallet(msg: TelegramBot.Message): Promise<void> {
+    await this.handleCreateWalletVoice(msg.chat.id, msg.from?.id || 0);
+  }
+
+  private async handleBalance(msg: TelegramBot.Message): Promise<void> {
+    await this.handleBalanceVoice(msg.chat.id, msg.from?.id || 0);
+  }
+
+  private async handleAddress(msg: TelegramBot.Message): Promise<void> {
+    await this.handleAddressVoice(msg.chat.id, msg.from?.id || 0);
+  }
+
+  private async handleWalletId(msg: TelegramBot.Message): Promise<void> {
+    await this.handleWalletIdVoice(msg.chat.id, msg.from?.id || 0);
   }
 
   private async handleNetwork(msg: TelegramBot.Message, match?: RegExpExecArray | null): Promise<void> {
@@ -109,147 +684,11 @@ class TelegramService {
       await this.bot.sendMessage(chatId, `Usage: /network <name>`);
       return;
     }
-
-    if (!isNetworkKey(rawName)) {
-      await this.bot.sendMessage(chatId, `Error: Invalid network. Use /networks to see available networks.`);
-      return;
-    }
-
-    try {
-      const net = networkService.setNetwork(rawName);
-      await this.bot.sendMessage(
-        chatId,
-        `Switched to network: ${net.name} ${net.isTestnet ? "(Testnet)" : ""}\n` +
-          `USDC Address: ${net.usdcAddress ?? "N/A"}`
-      );
-    } catch {
-      await this.bot.sendMessage(chatId, `Error: Invalid network. Use /networks to see available networks.`);
-    }
+    await this.handleNetworkVoice(chatId, rawName);
   }
 
   private async handleListNetworks(msg: TelegramBot.Message): Promise<void> {
-    const chatId = msg.chat.id;
-    const nets = networkService.getAllNetworks() as Record<
-      string,
-      { name: string; isTestnet?: boolean }
-    >;
-
-    const networksMessage = Object.values(nets)
-      .map((n) => `${n.name} ${n.isTestnet ? "(Testnet)" : ""}`)
-      .join("\n");
-
-    await this.bot.sendMessage(
-      chatId,
-      `Available networks:\n${networksMessage}\n\nUse /network <name> to switch networks`
-    );
-  }
-
-  private async handleCreateWallet(msg: TelegramBot.Message): Promise<void> {
-    const chatId = msg.chat.id;
-    const userId = msg.from?.id;
-    if (!userId) return;
-
-    const currentNetwork = networkService.getCurrentNetwork() as CurrentNetworkInfo;
-    const networkName = String(currentNetwork.name);
-
-    try {
-      await this.circleService.init();
-      const userWallets = this.storage.getWallet(userId) || {};
-
-      if (userWallets[networkName]) {
-        await this.bot.sendMessage(
-          chatId,
-          `You already have a wallet on ${networkName}!\n` +
-            `Your wallet address: ${userWallets[networkName].address}\n\n` +
-            `Use /network <network-name> to switch networks if you want to create a wallet on another network.`
-        );
-        return;
-      }
-
-      const walletResponse = await this.circleService.createWallet();
-      const firstWallet = walletResponse?.walletData?.data?.wallets?.[0];
-      if (!firstWallet) {
-        throw new Error("Failed to create wallet - invalid response from Circle API");
-      }
-
-      this.storage.saveWallet(userId, {
-        ...(this.storage.getWallet(userId) || {}),
-        [networkName]: {
-          walletId: walletResponse.walletId,
-          address: firstWallet.address,
-        },
-      });
-
-      await this.bot.sendMessage(
-        chatId,
-        `✅ Wallet created on ${networkName}!\nAddress: ${firstWallet.address}`
-      );
-    } catch (err: unknown) {
-      console.error("Wallet creation error:", err);
-      const errorMessage =
-        (err as any)?.response?.data?.message || (err as any)?.message || "Unknown error occurred";
-      await this.bot.sendMessage(chatId, `❌ Error creating wallet: ${errorMessage}\nPlease try again later.`);
-    }
-  }
-
-  private async handleBalance(msg: TelegramBot.Message): Promise<void> {
-    const chatId = msg.chat.id;
-    const userId = msg.from?.id;
-    if (!userId) return;
-
-    const currentNetworkName = String((networkService.getCurrentNetwork() as CurrentNetworkInfo).name);
-
-    try {
-      const wallets = this.storage.getWallet(userId);
-      if (!wallets || !wallets[currentNetworkName]) {
-        await this.bot.sendMessage(chatId, "Create a wallet first with /createWallet");
-        return;
-      }
-
-      const balance = await this.circleService.getWalletBalance(wallets[currentNetworkName].walletId);
-      await this.bot.sendMessage(chatId, `USDC Balance on ${balance.network}: ${balance.usdc} USDC`);
-    } catch (err) {
-      console.error("Error in handleBalance:", err);
-      await this.bot.sendMessage(chatId, "Error getting balance. Try again later.");
-    }
-  }
-
-  private async handleAddress(msg: TelegramBot.Message): Promise<void> {
-    const chatId = msg.chat.id;
-    const userId = msg.from?.id;
-    if (!userId) return;
-
-    const currentNetworkName = String((networkService.getCurrentNetwork() as CurrentNetworkInfo).name);
-    const wallets = this.storage.getWallet(userId);
-
-    if (!wallets || !wallets[currentNetworkName]) {
-      await this.bot.sendMessage(chatId, `No wallet found for ${currentNetworkName}. Create one with /createWallet`);
-      return;
-    }
-
-    await this.bot.sendMessage(
-      chatId,
-      `Wallet address on ${currentNetworkName}: ${wallets[currentNetworkName].address}`
-    );
-  }
-
-  private async handleWalletId(msg: TelegramBot.Message): Promise<void> {
-    const chatId = msg.chat.id;
-    const userId = msg.from?.id;
-    if (!userId) return;
-
-    const currentNetworkName = String((networkService.getCurrentNetwork() as CurrentNetworkInfo).name);
-    const wallets = this.storage.getWallet(userId);
-
-    if (!wallets || !wallets[currentNetworkName]) {
-      await this.bot.sendMessage(chatId, `No wallet found for ${currentNetworkName}. Create one with /createWallet`);
-      return;
-    }
-
-    await this.bot.sendMessage(
-      chatId,
-      `Wallet ID on ${currentNetworkName}: ${wallets[currentNetworkName].walletId}`
-    );
+    await this.handleListNetworksVoice(msg.chat.id);
   }
 
   private async handleSend(msg: TelegramBot.Message, match?: RegExpExecArray | null): Promise<void> {
@@ -257,12 +696,6 @@ class TelegramService {
     const userId = String(msg.from?.id ?? "");
 
     try {
-      const currentNetworkName = String((networkService.getCurrentNetwork() as CurrentNetworkInfo).name);
-      const wallets = this.storage.getWallet(userId);
-      if (!wallets || !wallets[currentNetworkName]) {
-        throw new Error(`No wallet found for ${currentNetworkName}. Please create a wallet first using /createWallet`);
-      }
-
       const raw = match?.[1] ?? "";
       const parts = raw.split(" ").filter(Boolean);
       if (parts.length !== 2) {
@@ -270,27 +703,12 @@ class TelegramService {
       }
 
       const [destinationAddress, amount] = parts as [`0x${string}`, string];
-
-      await this.bot.sendMessage(chatId, `Processing transaction on ${currentNetworkName}...`);
-
-      const txResponse = await this.circleService.sendTransaction(
-        wallets[currentNetworkName].walletId,
-        destinationAddress,
-        amount
-      );
-
-      const message =
-        `✅ Transaction submitted on ${currentNetworkName}!\n\n` +
-        `Amount: ${amount} USDC\n` +
-        `To: ${destinationAddress}\n` +
-        `Transaction ID: ${txResponse.id}`;
-
-      await this.bot.sendMessage(chatId, message);
-    } catch (err: unknown) {
-      console.error("Error sending transaction:", err);
+      await this.executeSend(chatId, Number(userId), destinationAddress, amount);
+    } catch (error: unknown) {
+      console.error("Error sending transaction:", error);
       await this.bot.sendMessage(
         chatId,
-        `❌ Error: ${(err as any)?.message ?? "Failed to send transaction. Please try again later."}`
+        `❌ Error: ${(error as any)?.message ?? "Failed to send transaction"}`
       );
     }
   }
@@ -300,71 +718,36 @@ class TelegramService {
     const userId = String(msg.from?.id ?? "");
 
     try {
-      const wallet = this.storage.getWallet(userId);
-      if (!wallet) {
-        await this.bot.sendMessage(chatId, "Create a wallet first with /createWallet");
-        return;
-      }
-
       const raw = match?.[1] ?? "";
       const parts = raw.split(" ").filter(Boolean);
       if (parts.length !== 3) {
-        await this.bot.sendMessage(chatId, "Invalid format. Use: /cctp <destination-network> <address> <amount>");
+        await this.bot.sendMessage(chatId, "Invalid format. Use: /cctp <network> <address> <amount>");
         return;
       }
 
-      const [destinationNetworkRaw, destinationAddressRaw, amount] = parts;
-      const destinationNetwork = destinationNetworkRaw.toUpperCase();
-      const destinationAddress = destinationAddressRaw as `0x${string}`;
+      const [destinationNetwork, destinationAddress, amount] = parts;
+      const upperNetwork = destinationNetwork.toUpperCase();
 
-      const currentNetwork = networkService.getCurrentNetwork() as CurrentNetworkInfo;
-      const currentKey = String(currentNetwork.name);
-      const userWallet = wallet[currentKey];
-
-      if (!userWallet) {
+      if (!isDomainKey(upperNetwork)) {
         await this.bot.sendMessage(
           chatId,
-          `No wallet found for ${currentKey}. Create one first with /createWallet`
+          `❌ Unsupported destination network: ${destinationNetwork}.`
         );
         return;
       }
 
-      const destinationWallet = wallet[destinationNetwork];
-      if (!destinationWallet) {
-        await this.bot.sendMessage(
-          chatId,
-          `No wallet found for ${destinationNetwork}. Create one first with /createWallet`
-        );
-        return;
-      }
-
-      await this.bot.sendMessage(chatId, "Initiating cross-chain transfer...");
-      const result = await this.circleService.crossChainTransfer({
-        walletId: userWallet.walletId,
-        destinationNetwork,
-        destinationAddress,
-        amount,
+      await this.executeCCTP(
         chatId,
-        destinationWalletId: destinationWallet.walletId,
-      });
-
-      const message =
-        `✅ Cross-chain transfer initiated!\n\n` +
-        `From: ${currentKey}\n` +
-        `To: ${destinationNetwork}\n` +
-        `Amount: ${amount} USDC\n` +
-        `Recipient: ${destinationAddress}\n\n` +
-        `Transactions:\n` +
-        `Approve: ${result.approveTx}\n` +
-        `Burn: ${result.burnTx}\n` +
-        `Receive: ${result.receiveTx}`;
-
-      await this.bot.sendMessage(chatId, message);
-    } catch (err: unknown) {
-      console.error("Error in CCTP transfer:", err);
+        Number(userId),
+        upperNetwork,
+        destinationAddress as `0x${string}`,
+        amount
+      );
+    } catch (error: unknown) {
+      console.error("Error in CCTP transfer:", error);
       await this.bot.sendMessage(
         chatId,
-        `❌ Error: ${(err as any)?.message ?? "Failed to execute cross-chain transfer"}`
+        `❌ Error: ${(error as any)?.message ?? "Failed to execute cross-chain transfer"}`
       );
     }
   }

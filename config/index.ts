@@ -17,6 +17,9 @@ const config = {
   telegram: {
     botToken: process.env.TELEGRAM_BOT_TOKEN,
   },
+  elevenlabs: {
+    apiKey: process.env.ELEVENLABS_API_KEY,
+  },
   network: {
     name: process.env.NETWORK || "ARB-SEPOLIA",
     usdcAddress: process.env.USDC_TOKEN_ADDRESS || "0x75faf114eafb1bdbe2f0316df893fd58ce46aa4d",
