@@ -115,7 +115,9 @@ await createWallet("grandma@gmail.com")
 
 # Telegram Bot
 
-flowchart TD
+```mermaid
+graph LR
+
   A["Voice Message"] --> B["Telegram Bot"]
   B --> C["VoiceCommandService"]
   C --> D["ElevenLabs STT"]
@@ -123,6 +125,7 @@ flowchart TD
   E --> F["Intent Parser"]
   F --> G["Command Executor"]
   G --> H["CircleService<br/>(Wallet Operations)"]
+```
 
 Our integrated Telegram agent now supports **natural-language voice control** backed by ElevenLabs Speech-to-Text. Users can send a voice message, and the bot will parse it through [VoiceCommandService.ts](cci:7://file:///Users/juanisaac/Desktop/stablepagoV2/stablePago/services/VoiceCommandService.ts:0:0-0:0), convert intent into structured commands, and execute wallet operations handled in [TelegramService.ts](cci:7://file:///Users/juanisaac/Desktop/stablepagoV2/stablePago/services/TelegramService.ts:0:0-0:0). This unlocks hands-free management of StablePago wallets—including balance checks, transfers, and network switches—while retaining all existing text-based commands.
 
