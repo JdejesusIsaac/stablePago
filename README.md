@@ -432,6 +432,13 @@ https://comtechgold.com/
 https://mineralvault.io/
 https://vnx.li/vnxau-first-gold-backed-token-on-base/
 
+https://www.coingecko.com/en/coins/matrixdock-gold
+https://etherscan.io/token/0x2103E845C5E135493Bb6c2A4f0B8651956eA8682
+https://www.coingecko.com/en/coins/comtech-gold
+https://xinfin.org/
+https://xdcscan.com/address/0x8f9920283470f52128bf11b0c14e798be704fd15
+https://www.coingecko.com/en/coins/mineral-vault-fund-i
+https://explorer.plume.org/token/0x5107272921A750A20d492Fb41Acf0b770b09a624
 ## Roadmap
 
 ### ✅ Q1 2025 - Foundation
