@@ -9,7 +9,7 @@ class NetworkService {
   private currentNetwork: NetworkKey;
 
   constructor() {
-    this.currentNetwork = "ARB-SEPOLIA";
+    this.currentNetwork = "BASE-SEPOLIA";
   }
 
   setNetwork(networkName: NetworkKey): NetworkInfo {

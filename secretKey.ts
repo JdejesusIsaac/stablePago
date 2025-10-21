@@ -5,7 +5,7 @@ import { generateEntitySecretCiphertext } from "@circle-fin/developer-controlled
 
 async function main() {
   const apiKey = process.env.CIRCLE_API_KEY;
-  const entitySecret = process.env.CIRCLE_ENTITY_SECRET;
+  const entitySecret = "cdecb1628803317ae210accad1eae88864e1e9762b06ca735f906ccfc4da9438";
 
   if (!apiKey || !entitySecret) {
     throw new Error("Missing CIRCLE_API_KEY or CIRCLE_ENTITY_SECRET in environment variables");

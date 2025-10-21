@@ -1,1 +1,14 @@
-{}
+{
+  "1099375814": {
+    "BASE-SEPOLIA": {
+      "walletId": "a47bbf70-35fb-5888-9424-9dda46e487d4",
+      "address": "0x85f9706f3a07f028b69421e3d9fc39bc351fa61d"
+    }
+  },
+  "8023662399:AAHfgo2sPjq4AJE7kwyZ1DJDfLa0pa_9DQM": {
+    "BASE-SEPOLIA": {
+      "walletId": "540cd66d-c0d5-5272-a4db-082e93ab449e",
+      "address": "0xa5e5512d9dc6a7e6718b1a7498b6502e13a6ed86"
+    }
+  }
+}

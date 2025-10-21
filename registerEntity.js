@@ -1,7 +1,7 @@
 import { registerEntitySecretCiphertext } from "@circle-fin/developer-controlled-wallets";
 
 registerEntitySecretCiphertext({
-  apiKey: "",
-  entitySecret: "",
-  recoveryFileDownloadPath: "",
+  apiKey: "TEST_API_KEY:18a277e17cf0995be45f053843a2eb53:4ef62f4b30d33966ce52f5a11d56a1c2",
+  entitySecret: "r5Jw+pkdTXjEl+du4wU7A4jgoHCCDMomv54PsdZn9diU7gx0yFddveL8q1F6TVBrQB35gput6TjMsMTFK99MIxPg5TojUO2FR5/AfUqrDcvzxFC/1+4gyN7tJEBDBWMTo9+gyWyrnSU9wRcyASYoTB1pYVfih0YHZ4hRToLcLLWAV5ZncaMmWIhZU146pyvhtDMuHXSGsCEAl22KcdEvgqU22r18EwGnmw1f3r+zxGIedQVcyhQN9wUtrHKB6z5PEs+xxd9237E7p0EoFZ9kmfcCCXGyKU7AZLJxjCCpb6ILBeWOJ8dz881KVFLzTVMamtLb3DPBly9o8bocEvkcdqZBpS1CaM2e+b1eaSbxS8pn1mxCVhMNgROLBASjgkKo747TWNL4TuNcZ9VGDTlh6gAVf6fbUdMHTvc8uDnnzavVQ5H/XfcIIRTRMHp2ddlpsrq2UkQC/Krmi2kyB0+rc5fXikrZ6XE0O/TBXTE5S9g0Kk3kC/gi9VahILCDEK4rABoDHaE7kW1O+bKp95SKR3MA7T7LVLUuq6/XuOI0lDYoxpml5rHoR+fFgBe8rQ7yDDf6tR+JlkueucdBilSaLKv8UfGTLGRqAK5ttyG4NsdeautI1KSu/T+H46sju5MiYkUxh38hqfCF4UQ2f3hONyTIoA4xBtCGpVTAz83ZLMA=",
+  recoveryFileDownloadPath: "./recovery/",
 });
