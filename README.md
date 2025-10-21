@@ -472,6 +472,9 @@ https://explorer.plume.org/token/0x5107272921A750A20d492Fb41Acf0b770b09a624
 - [ ] Native stablecoins (DOPC, HTGC)
 - [ ] Replace Western Union in Caribbean
 
+# curl command:
+curl http://localhost:3002/api/telegram 
+
 ## Technology Partners
 
 ### Current Stack
