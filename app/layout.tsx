@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Fintech Starter App",
-  description: "Create your own Fintech app in minutes using Crossmint",
+  title: "StablePago - Build Caribbean Prosperity, One Transfer at a Time",
+  description: "Turn remittances into wealth creation. Earn yield, invest in real assets, access credit. Send money to Puerto Rico, Dominican Republic & Haiti with 1.25% fees. Voice-powered wealth building for Caribbean families.",
 };
 
 export default function RootLayout({
@@ -24,9 +24,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className="dark">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} bg-muted box-content antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} bg-background box-content antialiased`}
       >
         <Providers>{children}</Providers>
       </body>

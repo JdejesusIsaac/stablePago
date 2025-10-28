@@ -2,38 +2,89 @@
 @import "tw-animate-css";
 
 :root {
-  --radius: 0.625rem;
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: #30d55d;
-  --primary-hover: #26a64b;
-  --primary-foreground: oklch(100% 0 0);
-  --secondary: #000000;
-  --secondary-foreground: oklch(100% 0 0);
-  --muted: oklch(95.97% 0.011 196.98);
-  --muted-foreground: oklch(36.35% 0.063 215.72);
-  --accent: oklch(68.76% 0.1856 150.65);
-  --accent-foreground: oklch(60.29% 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.9288 0.013 255.51);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* Arc Network Design System - Dark Mode */
+  --radius: 1rem;
+  
+  /* Background & Surfaces */
+  --background: #0B0C10;
+  --foreground: #FFFFFF;
+  --surface: #121417;
+  --surface-elevated: #1C1F24;
+  
+  /* Cards & Containers */
+  --card: #121417;
+  --card-foreground: #FFFFFF;
+  --card-border: #1C1F24;
+  
+  /* Popover & Modals */
+  --popover: #121417;
+  --popover-foreground: #FFFFFF;
+  --popover-border: #1C1F24;
+  
+  /* Primary Accent (Neon Pink) */
+  --primary: #FF005C;
+  --primary-hover: #CC0049;
+  --primary-foreground: #FFFFFF;
+  --primary-glow: rgba(255, 0, 92, 0.4);
+  
+  /* Secondary Accent (Cyan/Blue) */
+  --secondary: #00F0FF;
+  --secondary-hover: #00C1CC;
+  --secondary-foreground: #0B0C10;
+  --secondary-glow: rgba(0, 240, 255, 0.4);
+  
+  /* Text Colors */
+  --text-primary: #FFFFFF;
+  --text-secondary: #A9B0B7;
+  --text-muted: #6B7280;
+  
+  /* Muted */
+  --muted: #1C1F24;
+  --muted-foreground: #A9B0B7;
+  
+  /* Accent (Tertiary) */
+  --accent: #00F0FF;
+  --accent-foreground: #0B0C10;
+  
+  /* Status Colors */
+  --success: #00F0FF;
+  --success-glow: rgba(0, 240, 255, 0.3);
+  --error: #FF005C;
+  --error-glow: rgba(255, 0, 92, 0.3);
+  --warning: #FFA500;
+  --warning-glow: rgba(255, 165, 0, 0.3);
+  
+  /* Destructive */
+  --destructive: #FF005C;
+  --destructive-foreground: #FFFFFF;
+  
+  /* Borders & Dividers */
+  --border: #1C1F24;
+  --border-hover: #2A2D32;
+  --input: #1C1F24;
+  --ring: #FF005C;
+  
+  /* Chart Colors (Arc Theme) */
+  --chart-1: #FF005C;
+  --chart-2: #00F0FF;
+  --chart-3: #A855F7;
+  --chart-4: #FFA500;
+  --chart-5: #10B981;
+  
+  /* Sidebar */
+  --sidebar: #121417;
+  --sidebar-foreground: #FFFFFF;
+  --sidebar-primary: #FF005C;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #1C1F24;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #1C1F24;
+  --sidebar-ring: #FF005C;
+  
+  /* Gradients */
+  --gradient-hero: linear-gradient(145deg, #0B0C10, #121417);
+  --gradient-card: linear-gradient(135deg, #121417, #1C1F24);
+  --gradient-glow: radial-gradient(circle at 50% 0%, rgba(255, 0, 92, 0.1), transparent 50%);
 }
 
 @theme inline {
@@ -79,12 +130,140 @@
   * {
     @apply border-border outline-ring/50;
   }
+  
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', 'Satoshi', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    letter-spacing: -0.01em;
   }
 
   button:not([disabled]),
   [role="button"]:not([disabled]) {
     cursor: pointer;
+    transition: all 0.2s ease-in-out;
+  }
+  
+  /* Arc Network Typography */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold tracking-tight;
+    letter-spacing: -0.02em;
+  }
+  
+  /* Arc Network Buttons */
+  .btn-primary {
+    @apply bg-primary hover:bg-primary-hover text-primary-foreground;
+    @apply rounded-xl px-6 py-3.5 font-semibold;
+    @apply transition-all duration-200 ease-in-out;
+    box-shadow: 0 0 12px var(--primary-glow);
+  }
+  
+  .btn-primary:hover {
+    transform: scale(1.03);
+    box-shadow: 0 0 20px var(--primary-glow);
+  }
+  
+  .btn-secondary {
+    @apply border-2 border-secondary text-secondary bg-transparent;
+    @apply hover:bg-secondary hover:text-secondary-foreground;
+    @apply rounded-xl px-6 py-3.5 font-semibold;
+    @apply transition-all duration-200 ease-in-out;
+  }
+  
+  .btn-secondary:hover {
+    transform: scale(1.03);
+    box-shadow: 0 0 12px var(--secondary-glow);
+  }
+  
+  /* Arc Network Cards */
+  .card-arc {
+    background: var(--gradient-card);
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    box-shadow: 0 0 12px rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(8px);
+  }
+  
+  .card-arc-elevated {
+    background: var(--surface-elevated);
+    border: 1px solid var(--border-hover);
+    border-radius: 1rem;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+  }
+  
+  /* Arc Network Inputs */
+  .input-arc {
+    background: var(--input);
+    border: 1px solid var(--border);
+    color: var(--foreground);
+    border-radius: 0.75rem;
+    padding: 0.75rem 1rem;
+    transition: all 0.2s ease-in-out;
+  }
+  
+  .input-arc:focus {
+    border-color: var(--primary);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(255, 0, 92, 0.2);
+  }
+  
+  /* Status Colors */
+  .text-positive {
+    color: var(--success);
+  }
+  
+  .text-negative {
+    color: var(--error);
+  }
+  
+  /* Glow Effects */
+  .glow-primary {
+    box-shadow: 0 0 12px var(--primary-glow);
+  }
+  
+  .glow-primary-lg {
+    box-shadow: 0 0 20px rgba(255, 0, 92, 0.5);
+  }
+  
+  .glow-secondary {
+    box-shadow: 0 0 12px var(--secondary-glow);
+  }
+  
+  .glow-secondary-lg {
+    box-shadow: 0 0 20px rgba(0, 240, 255, 0.5);
+  }
+  
+  .shadow-glow-primary-lg {
+    box-shadow: 0 0 24px rgba(255, 0, 92, 0.6);
+  }
+  
+  .shadow-glow-secondary-lg {
+    box-shadow: 0 0 24px rgba(0, 240, 255, 0.6);
+  }
+  
+  /* Arc Network Dividers */
+  .divider-arc {
+    border-top: 1px solid var(--border);
+  }
+  
+  /* Backdrop Effects */
+  .backdrop-arc {
+    backdrop-filter: blur(12px);
+    background: rgba(18, 20, 23, 0.8);
+  }
+  
+  /* Animations */
+  @keyframes glow-pulse {
+    0%, 100% {
+      background-size: 200% 200%;
+      background-position: left center;
+    }
+    50% {
+      background-size: 200% 200%;
+      background-position: right center;
+    }
+  }
+  
+  .animate-glow-pulse {
+    animation: glow-pulse 3s ease-in-out infinite;
   }
 }

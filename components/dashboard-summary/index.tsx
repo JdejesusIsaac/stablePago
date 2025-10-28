@@ -1,7 +1,5 @@
 import Image from "next/image";
 import { WalletBalance } from "./WalletBallance";
-import { DepositButton } from "../common/DepositButton";
-import { Container } from "../common/Container";
 import { ArrowsRightLeftIcon, WalletIcon, PaperAirplaneIcon, UserPlusIcon } from "@heroicons/react/24/outline";
 import { Dropdown } from "../common/Dropdown";
 import { useState } from "react";
@@ -59,25 +57,45 @@ export function DashboardSummary({ onDepositClick, onSendClick, onWithdrawClick,
   ];
 
   const dropdownTrigger = (
-    <button className="bg-secondary hover:bg-secondary/80 rounded-full p-2.5">
-      <Image src="/dots-vertical.svg" alt="Settings" width={24} height={24} />
+    <button className="bg-surface-elevated hover:bg-border-hover border border-border rounded-xl p-3 transition-all duration-200 hover:scale-105 glow-secondary">
+      <Image src="/dots-vertical.svg" alt="Settings" width={20} height={20} />
     </button>
   );
 
   return (
-    <Container className="flex w-full max-w-5xl flex-col items-center justify-between md:flex-row md:items-stretch">
-      <WalletBalance />
-      <div className="flex w-full items-center gap-2 md:w-auto md:justify-end">
-        <DepositButton onClick={onDepositClick} />
-        <button
-          type="button"
-          className="bg-secondary hover:bg-secondary/80 text-secondary-foreground flex h-12 flex-grow items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold transition md:w-40"
-          onClick={onSendClick}
-        >
-          <Image src="/arrow-up-right-icon-white.svg" alt="Add" width={24} height={24} /> Send
-        </button>
-        <Dropdown trigger={dropdownTrigger} options={dropdownOptions} />
+    <div className="card-arc w-full max-w-5xl p-6 mb-8">
+      <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+        {/* Balance Section with Arc Glow */}
+        <div className="flex-1 w-full md:w-auto">
+          <WalletBalance />
+        </div>
+        
+        {/* Action Buttons - Arc Network Style */}
+        <div className="flex w-full md:w-auto items-center gap-3">
+          {/* Deposit Button with Primary Glow */}
+          <button
+            onClick={onDepositClick}
+            className="btn-primary flex-1 md:flex-initial flex items-center justify-center gap-2 glow-primary"
+          >
+            <span className="text-lg">+</span>
+            <span>Deposit</span>
+          </button>
+          
+          {/* Send Button with Secondary Style */}
+          <button
+            type="button"
+            className="btn-secondary flex-1 md:flex-initial flex items-center justify-center gap-2"
+            onClick={onSendClick}
+          >
+            <Image src="/arrow-up-right-icon-white.svg" alt="Send" width={20} height={20} />
+            <span>Send</span>
+          </button>
+          
+          {/* Menu Dropdown with Arc Styling */}
+          <Dropdown trigger={dropdownTrigger} options={dropdownOptions} />
+        </div>
       </div>
+      
       <WalletDetails onClose={() => setShowWalletDetails(false)} open={showWalletDetails} />
       <WarningModal open={openWarningModal} onClose={() => setOpenWarningModal(false)} />
       <DelegationManager
@@ -96,6 +114,6 @@ export function DashboardSummary({ onDepositClick, onSendClick, onWithdrawClick,
           setShowDelegationManager(true);
         }}
       />
-    </Container>
+    </div>
   );
 }

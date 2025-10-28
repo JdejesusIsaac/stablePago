@@ -67,15 +67,15 @@ export function CreateWalletModal({ open, onClose }: CreateWalletModalProps) {
       <div className="flex w-full flex-col gap-4">
         {!success ? (
           <>
-            <div className="rounded-lg bg-blue-50 p-4 text-sm text-blue-800">
+            <div className="rounded-xl bg-[#00F0FF]/10 border border-[#00F0FF]/30 p-4 text-sm text-[#00F0FF]">
               💡 <strong>Create a wallet for someone</strong>
               <br />
-              Enter their email to create a Crossmint wallet for them. They can access it by
-              logging in with their email.
+              <span className="text-[#A9B0B7]">Enter their email to create a Crossmint wallet for them. They can access it by
+              logging in with their email.</span>
             </div>
 
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-slate-700">
+              <label className="text-sm font-medium text-[#A9B0B7]">
                 Recipient Email Address
               </label>
               <input
@@ -83,7 +83,7 @@ export function CreateWalletModal({ open, onClose }: CreateWalletModalProps) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="grandma@example.com"
-                className="rounded-lg border border-slate-300 px-4 py-3 text-base"
+                className="rounded-xl border border-[#2A2D32] bg-[#0B0C10] px-4 py-3 text-base text-white placeholder:text-[#6B7280] focus:border-[#FF005C] focus:outline-none focus:ring-2 focus:ring-[#FF005C]/20 transition-all duration-200"
                 disabled={loading}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !loading) {
@@ -91,13 +91,13 @@ export function CreateWalletModal({ open, onClose }: CreateWalletModalProps) {
                   }
                 }}
               />
-              <div className="text-xs text-slate-500">
+              <div className="text-xs text-[#6B7280]">
                 They'll be able to login with this email to access their wallet
               </div>
             </div>
 
             {error && (
-              <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>
+              <div className="rounded-xl bg-[#FF005C]/10 border border-[#FF005C]/30 p-3 text-sm text-[#FF005C]">{error}</div>
             )}
 
             <PrimaryButton onClick={handleCreateWallet} disabled={loading || !email}>
@@ -106,9 +106,9 @@ export function CreateWalletModal({ open, onClose }: CreateWalletModalProps) {
           </>
         ) : (
           <div className="flex flex-col items-center justify-center gap-4 py-8">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#00F0FF]/20 border-2 border-[#00F0FF]">
               <svg
-                className="h-8 w-8 text-emerald-600"
+                className="h-8 w-8 text-[#00F0FF]"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -123,23 +123,23 @@ export function CreateWalletModal({ open, onClose }: CreateWalletModalProps) {
             </div>
 
             <div className="text-center">
-              <div className="mb-2 text-xl font-bold text-slate-900">Wallet Created! 🎉</div>
-              <div className="mb-4 text-sm text-slate-600">
-                A wallet has been created for <strong>{email}</strong>
+              <div className="mb-2 text-xl font-bold text-white">Wallet Created! 🎉</div>
+              <div className="mb-4 text-sm text-[#A9B0B7]">
+                A wallet has been created for <strong className="text-white">{email}</strong>
               </div>
 
               {createdWallet && (
-                <div className="mb-4 rounded-lg bg-slate-50 p-3">
-                  <div className="mb-1 text-xs font-medium text-slate-500">Wallet Address</div>
-                  <div className="font-mono text-xs text-slate-900 break-all">
+                <div className="mb-4 rounded-xl bg-[#0B0C10] border border-[#2A2D32] p-3">
+                  <div className="mb-1 text-xs font-medium text-[#6B7280] uppercase tracking-wide">Wallet Address</div>
+                  <div className="font-mono text-xs text-white break-all">
                     {createdWallet}
                   </div>
                 </div>
               )}
 
-              <div className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">
-                ✅ They can now receive funds! Send USDC to <strong>{email}</strong> and it will
-                arrive in their wallet.
+              <div className="rounded-xl bg-[#00F0FF]/10 border border-[#00F0FF]/30 p-3 text-sm text-[#00F0FF]">
+                ✅ <span className="text-[#A9B0B7]">They can now receive funds! Send USDC to <strong className="text-white">{email}</strong> and it will
+                arrive in their wallet.</span>
               </div>
             </div>
 
