@@ -1,10 +1,10 @@
-// services/VoiceCommandService.ts
+// services/VoiceCommandService.ts - Enhanced with MCP & Market Data Features
 import { ElevenLabsClient } from "elevenlabs";
 import config from "@/config";
-import { VOICE_COMMAND_CONFIG } from "../config/voiceCommands";
 
-/** Supported wallet command types */
+/** Supported wallet command types (expanded for MCP features) */
 export type CommandType =
+  // Wallet operations
   | "CREATE_WALLET"
   | "CHECK_BALANCE"
   | "SEND"
@@ -13,6 +13,15 @@ export type CommandType =
   | "SWITCH_NETWORK"
   | "LIST_NETWORKS"
   | "CROSS_CHAIN_TRANSFER"
+  // Trading operations
+  | "SWAP"
+  // Market data operations (NEW)
+  | "RWA_QUERY"
+  | "CHECK_PRICE"
+  | "TOP_GAINERS_LOSERS"
+  | "CHART_REQUEST"
+  | "TRENDING_COINS"
+  // General
   | "HELP"
   | "UNKNOWN";
 
@@ -21,10 +30,19 @@ export interface ParsedCommand {
   type: CommandType;
   confidence: number; // 0-1 confidence score
   params?: {
+    // Wallet params
     amount?: string;
     address?: string;
     network?: string;
     destinationNetwork?: string;
+    // Trading params
+    outputToken?: string;
+    outputAmount?: string;
+    maxUSDCIn?: string;
+    // Market data params
+    coinName?: string;
+    query?: string;
+    days?: string;
   };
   originalText: string;
   requiresConfirmation: boolean;
@@ -102,30 +120,28 @@ class VoiceCommandService {
 
   /**
    * Parse transcribed text into wallet command
+   * Enhanced with market data and swap commands
    */
   parseCommand(text: string): ParsedCommand {
     const normalized = text.toLowerCase().trim();
 
     // Command patterns with priority order
+    // IMPORTANT: Order matters! More specific patterns first, then general ones.
+    // Financial operations → Market data → Wallet operations → Help
     const patterns: Array<{
       type: CommandType;
       pattern: RegExp;
       extract?: (match: RegExpMatchArray) => ParsedCommand["params"];
       requiresConfirmation: boolean;
     }> = [
+      // ==========================================
+      // FINANCIAL OPERATIONS (Highest Priority - Require Confirmation)
+      // ==========================================
+
       // Send USDC (most specific first)
       {
         type: "SEND",
-        pattern: /send\s+(\d+\.?\d*)\s+usdc\s+to\s+(0x[a-f0-9]{40})/i,
-        extract: (match) => ({
-          amount: match[1],
-          address: match[2] as `0x${string}`,
-        }),
-        requiresConfirmation: true,
-      },
-      {
-        type: "SEND",
-        pattern: /transfer\s+(\d+\.?\d*)\s+usdc\s+to\s+(0x[a-f0-9]{40})/i,
+        pattern: /(?:send|enviar|envia|envía|transfer)\s+(\d+\.?\d*)\s+(?:usdc\s+)?(?:to|a)\s+(0x[a-f0-9]{40})/i,
         extract: (match) => ({
           amount: match[1],
           address: match[2] as `0x${string}`,
@@ -133,11 +149,11 @@ class VoiceCommandService {
         requiresConfirmation: true,
       },
 
-      // Cross-chain transfer
+      // Cross-chain transfer (English)
       {
         type: "CROSS_CHAIN_TRANSFER",
         pattern:
-          /(?:cross[- ]?chain|cctp|bridge)\s+(\d+\.?\d*)\s+usdc\s+to\s+([a-z\-]+)\s+(?:at|to)\s+(0x[a-f0-9]{40})/i,
+          /(?:cross[- ]?chain|cctp|bridge|puente)\s+(\d+\.?\d*)\s+(?:usdc\s+)?(?:to|a)\s+([a-z\-\s]+)\s+(?:at|to|en)\s+(0x[a-f0-9]{40})/i,
         extract: (match) => ({
           amount: match[1],
           destinationNetwork: match[2].toUpperCase().replace(/\s+/g, "-"),
@@ -146,60 +162,282 @@ class VoiceCommandService {
         requiresConfirmation: true,
       },
 
-      // Create wallet
+      // Swap commands (English & Spanish)
+      {
+        type: "SWAP",
+        pattern:
+          /(?:swap|exchange|cambiar|intercambiar)\s+(?:for|por|to)?\s*(\d+\.?\d*)\s+([a-z]+)/i,
+        extract: (match) => ({
+          outputAmount: match[1],
+          outputToken: match[2].toUpperCase(),
+        }),
+        requiresConfirmation: true,
+      },
+      {
+        type: "SWAP",
+        pattern:
+          /(?:buy|comprar|get)\s+(?:some\s+)?(\d+\.?\d*)\s+([a-z]+)/i,
+        extract: (match) => ({
+          outputAmount: match[1],
+          outputToken: match[2].toUpperCase(),
+        }),
+        requiresConfirmation: true,
+      },
+      // Swap by name (e.g., "swap for gold", "buy gold")
+      {
+        type: "SWAP",
+        pattern:
+          /(?:swap|exchange|cambiar|buy|comprar)\s+(?:for|por|to)?\s*(gold|oro|weth|eth|dai|uni)/i,
+        extract: (match) => ({
+          outputToken: match[1].toUpperCase(),
+          outputAmount: "0.1", // Default small amount
+        }),
+        requiresConfirmation: true,
+      },
+
+      // ==========================================
+      // MARKET DATA QUERIES (No Confirmation)
+      // ==========================================
+
+      // Top gainers/losers (English & Spanish) - MCP feature
+      {
+        type: "TOP_GAINERS_LOSERS",
+        pattern:
+          /(?:top|mejores|show|muestra|what|cuáles)\s+(?:gainers|losers|ganadores|perdedores|movers|subieron|bajaron)/i,
+        requiresConfirmation: false,
+      },
+      {
+        type: "TOP_GAINERS_LOSERS",
+        pattern:
+          /(?:which|qué|cuáles)\s+(?:coins|tokens|monedas)\s+(?:went up|went down|subieron|bajaron|gained|lost)/i,
+        requiresConfirmation: false,
+      },
+      {
+        type: "TOP_GAINERS_LOSERS",
+        pattern:
+          /(?:show|muestra|dime|tell me)\s+(?:me\s+)?(?:the\s+)?(?:top\s+)?(?:market\s+)?(?:movers|ganadores|perdedores|winners|losers)/i,
+        requiresConfirmation: false,
+      },
+
+      // Chart requests (English & Spanish)
+      {
+        type: "CHART_REQUEST",
+        pattern:
+          /(?:show|muestra|get|obtener|display)\s+(?:me\s+)?(?:the\s+)?(?:chart|gráfico|graph)\s+(?:of|for|de|para)\s+([a-z]+)(?:\s+(\d+)\s+(?:days?|días?))?/i,
+        extract: (match) => ({
+          coinName: match[1],
+          days: match[2] || "7",
+        }),
+        requiresConfirmation: false,
+      },
+      {
+        type: "CHART_REQUEST",
+        pattern:
+          /([a-z]+)\s+(?:chart|gráfico|price chart|gráfico de precio)(?:\s+(\d+)\s+(?:days?|días?))?/i,
+        extract: (match) => ({
+          coinName: match[1],
+          days: match[2] || "7",
+        }),
+        requiresConfirmation: false,
+      },
+
+      // Price checks (English & Spanish) - Multiple patterns for flexibility
+      {
+        type: "CHECK_PRICE",
+        pattern:
+          /(?:what(?:'s| is)|cuál es|how much is|cuánto (?:cuesta|vale))\s+(?:the\s+)?(?:price of|precio de)?\s+([a-z\s]+?)(?:\s+(?:today|now|ahora|hoy))?\s*$/i,
+        extract: (match) => ({
+          coinName: match[1].trim(),
+        }),
+        requiresConfirmation: false,
+      },
+      {
+        type: "CHECK_PRICE",
+        pattern:
+          /(?:price|precio)\s+(?:of|de)\s+([a-z\s]+?)\s*$/i,
+        extract: (match) => ({
+          coinName: match[1].trim(),
+        }),
+        requiresConfirmation: false,
+      },
+      {
+        type: "CHECK_PRICE",
+        pattern:
+          /^(?:the\s+)?(?:price|precio)\s+(?:of|de)\s+([a-z\s]+?)\s*$/i,
+        extract: (match) => ({
+          coinName: match[1].trim(),
+        }),
+        requiresConfirmation: false,
+      },
+
+      // Trending coins (English & Spanish)
+      {
+        type: "TRENDING_COINS",
+        pattern:
+          /(?:trending|tendencia|popular|moda|hot)\s+(?:coins|tokens|monedas|cryptos)/i,
+        requiresConfirmation: false,
+      },
+      {
+        type: "TRENDING_COINS",
+        pattern:
+          /(?:what(?:'s| is)|cuáles son|show me|muéstrame)\s+(?:the\s+)?(?:trending|populares|en tendencia)/i,
+        requiresConfirmation: false,
+      },
+
+      // General RWA queries (English & Spanish) - Flexible patterns
+      {
+        type: "RWA_QUERY",
+        pattern:
+          /(?:list|lista|show|muestra|give me|dame)\s+(?:me\s+)?(?:the\s+)?(?:top|best|mejores|principales)?\s*(?:rwa|real world asset|activos reales)?\s*(?:tokens|coins|monedas)/i,
+        extract: (match) => ({
+          query: match[0],
+        }),
+        requiresConfirmation: false,
+      },
+      {
+        type: "RWA_QUERY",
+        pattern:
+          /(?:top|best|mejores|principales)\s+(?:rwa|real world asset|activos)?\s*(?:tokens|coins|monedas)/i,
+        extract: (match) => ({
+          query: match[0],
+        }),
+        requiresConfirmation: false,
+      },
+      {
+        type: "RWA_QUERY",
+        pattern:
+          /(?:gold|oro|silver|plata)\s+(?:tokens|backed|respaldados|en|on)/i,
+        extract: (match) => ({
+          query: match[0],
+        }),
+        requiresConfirmation: false,
+      },
+      {
+        type: "RWA_QUERY",
+        pattern:
+          /(?:show|muestra|dime)\s+(?:me\s+)?(?:gold|oro)\s+(?:tokens|on|en)/i,
+        extract: (match) => ({
+          query: match[0],
+        }),
+        requiresConfirmation: false,
+      },
+      {
+        type: "RWA_QUERY",
+        pattern:
+          /(?:tell me|dime|háblame|information|info)\s+(?:about|de|sobre)\s+([a-z\s]+)/i,
+        extract: (match) => ({
+          query: match[1].trim(),
+        }),
+        requiresConfirmation: false,
+      },
+      {
+        type: "RWA_QUERY",
+        pattern:
+          /(?:what|qué|cuál|which)\s+(?:are|is|es|son)\s+(?:the\s+)?(?:rwa|activos)/i,
+        extract: (match) => ({
+          query: match[0],
+        }),
+        requiresConfirmation: false,
+      },
+      // Catch-all for RWA-related keywords (must be before wallet ops to avoid conflicts)
+      {
+        type: "RWA_QUERY",
+        pattern:
+          /\b(?:rwa|real world asset|activos reales|ondo|paxg|usyc|buidl|backed|respaldado)\b/i,
+        extract: (match) => ({
+          query: match.input || match[0], // Use full input text as query
+        }),
+        requiresConfirmation: false,
+      },
+
+      // ==========================================
+      // WALLET OPERATIONS (No Confirmation)
+      // ==========================================
+
+      // Create wallet (English & Spanish)
       {
         type: "CREATE_WALLET",
-        pattern: /(?:create|make|new|setup)\s+(?:a\s+)?wallet/i,
+        pattern: /(?:create|make|new|setup|crea|crear|nueva)\s+(?:a\s+)?(?:una\s+)?(?:wallet|billetera|cartera)/i,
         requiresConfirmation: false,
       },
 
-      // Check balance
+      // Check balance (English & Spanish)
       {
         type: "CHECK_BALANCE",
-        pattern: /(?:check|show|what'?s|get)\s+(?:my\s+)?balance/i,
+        pattern: /(?:check|show|get)\s+(?:my\s+)?(?:wallet\s+)?(?:balance)/i,
         requiresConfirmation: false,
       },
       {
         type: "CHECK_BALANCE",
-        pattern: /how\s+much\s+(?:usdc\s+)?(?:do\s+)?i\s+have/i,
+        pattern: /(?:what'?s|what\s+is)\s+(?:my\s+)?(?:wallet\s+)?(?:balance)/i,
+        requiresConfirmation: false,
+      },
+      {
+        type: "CHECK_BALANCE",
+        pattern: /(?:ver|muestra|mostrar|revisa|revisar)\s+(?:mi\s+)?(?:wallet\s+)?(?:balance|saldo)/i,
+        requiresConfirmation: false,
+      },
+      {
+        type: "CHECK_BALANCE",
+        pattern: /(?:how much|cuánto)\s+(?:usdc\s+)?(?:do\s+)?(?:i\s+)?(?:have|tengo)/i,
         requiresConfirmation: false,
       },
 
-      // Get address
+      // Get address (English & Spanish)
       {
         type: "GET_ADDRESS",
-        pattern: /(?:show|get|what'?s)\s+(?:my\s+)?(?:wallet\s+)?address/i,
+        pattern: /(?:show|get)\s+(?:my\s+)?(?:wallet\s+)?(?:address)/i,
+        requiresConfirmation: false,
+      },
+      {
+        type: "GET_ADDRESS",
+        pattern: /(?:what'?s|what\s+is)\s+(?:my\s+)?(?:wallet\s+)?(?:address)/i,
+        requiresConfirmation: false,
+      },
+      {
+        type: "GET_ADDRESS",
+        pattern: /(?:ver|muestra|mostrar)\s+(?:mi\s+)?(?:wallet\s+)?(?:dirección|address)/i,
         requiresConfirmation: false,
       },
 
-      // Get wallet ID
+      // Get wallet ID (English & Spanish)
       {
         type: "GET_WALLET_ID",
-        pattern: /(?:show|get|what'?s)\s+(?:my\s+)?wallet\s+id/i,
+        pattern: /(?:show|get)\s+(?:my\s+)?wallet\s+(?:id|identification)/i,
+        requiresConfirmation: false,
+      },
+      {
+        type: "GET_WALLET_ID",
+        pattern: /(?:what'?s|what\s+is)\s+(?:my\s+)?wallet\s+(?:id|identification)/i,
+        requiresConfirmation: false,
+      },
+      {
+        type: "GET_WALLET_ID",
+        pattern: /(?:ver|muestra|mostrar)\s+(?:mi\s+)?wallet\s+(?:id|identification)/i,
         requiresConfirmation: false,
       },
 
-      // Switch network
+      // Switch network (English & Spanish)
       {
         type: "SWITCH_NETWORK",
-        pattern: /(?:switch|change|use)\s+(?:to\s+)?(?:network\s+)?([a-z\-]+)/i,
+        pattern: /(?:switch|change|use|cambiar|usar)\s+(?:to\s+)?(?:network\s+)?([a-z\-\s]+)/i,
         extract: (match) => ({
           network: match[1].toUpperCase().replace(/\s+/g, "-"),
         }),
         requiresConfirmation: false,
       },
 
-      // List networks
+      // List networks (English & Spanish)
       {
         type: "LIST_NETWORKS",
-        pattern: /(?:list|show|what)\s+(?:available\s+)?networks/i,
+        pattern: /(?:list|show|what|lista|listar|muestra|mostrar|cuáles)\s+(?:available\s+)?(?:me\s+)?(?:las\s+)?(?:networks|redes|cadenas)/i,
         requiresConfirmation: false,
       },
 
-      // Help
+      // Help (English & Spanish)
       {
         type: "HELP",
-        pattern: /^(?:help|what\s+can\s+you\s+do|commands)$/i,
+        pattern: /^(?:help|ayuda|what\s+can\s+you\s+do|qué puedes hacer|commands|comandos)$/i,
         requiresConfirmation: false,
       },
     ];
@@ -289,6 +527,7 @@ class VoiceCommandService {
    * Validate parsed command parameters
    */
   private validateCommand(command: ParsedCommand): void {
+    // Validate SEND and CROSS_CHAIN_TRANSFER
     if (command.type === "SEND" || command.type === "CROSS_CHAIN_TRANSFER") {
       // Validate amount
       const amount = command.params?.amount;
@@ -312,6 +551,7 @@ class VoiceCommandService {
       }
     }
 
+    // Validate CROSS_CHAIN_TRANSFER
     if (command.type === "CROSS_CHAIN_TRANSFER") {
       const network = command.params?.destinationNetwork;
       if (!network) {
@@ -319,10 +559,59 @@ class VoiceCommandService {
       }
     }
 
+    // Validate SWAP
+    if (command.type === "SWAP") {
+      const token = command.params?.outputToken;
+      if (!token) {
+        throw new Error("Token name is required for swap");
+      }
+
+      // Validate supported tokens
+      const supportedTokens = ["WETH", "ETH", "DAI", "UNI", "GOLD", "ORO"];
+      if (!supportedTokens.includes(token.toUpperCase())) {
+        throw new Error(
+          `Unsupported token: ${token}. Supported: WETH, DAI, UNI, GOLD`
+        );
+      }
+
+      // Validate amount if provided
+      if (command.params?.outputAmount) {
+        const amount = parseFloat(command.params.outputAmount);
+        if (isNaN(amount) || amount <= 0) {
+          throw new Error(`Invalid amount: ${command.params.outputAmount}`);
+        }
+      }
+    }
+
+    // Validate SWITCH_NETWORK
     if (command.type === "SWITCH_NETWORK") {
       const network = command.params?.network;
       if (!network) {
         throw new Error("Network name is required");
+      }
+    }
+
+    // Validate CHART_REQUEST
+    if (command.type === "CHART_REQUEST") {
+      const coinName = command.params?.coinName;
+      if (!coinName) {
+        throw new Error("Coin name is required for chart");
+      }
+
+      // Validate days if provided
+      if (command.params?.days) {
+        const days = parseInt(command.params.days);
+        if (isNaN(days) || days <= 0 || days > 365) {
+          throw new Error(`Invalid days: ${command.params.days} (must be 1-365)`);
+        }
+      }
+    }
+
+    // Validate CHECK_PRICE
+    if (command.type === "CHECK_PRICE") {
+      const coinName = command.params?.coinName;
+      if (!coinName) {
+        throw new Error("Coin name is required for price check");
       }
     }
   }
@@ -351,82 +640,177 @@ class VoiceCommandService {
   }
 
   /**
-   * Generate user-friendly error message
+   * Generate user-friendly error message (bilingual)
    */
   getErrorMessage(error: string): string {
     if (error.includes("too large")) {
-      return "🚫 Audio file is too large. Please send a shorter voice message (max 5 minutes).";
+      return "🚫 Archivo de audio muy grande. Por favor envía un mensaje de voz más corto (máx 5 minutos).";
     }
 
     if (error.includes("transcribe")) {
-      return "🎤 Could not understand the audio. Please try speaking clearly and check your microphone.";
+      return "🎤 No pude entender el audio. Por favor habla claramente y verifica tu micrófono.";
     }
 
     if (error.includes("Invalid amount")) {
-      return "💰 Invalid amount specified. Please say the amount clearly (e.g., 'send 10 USDC').";
+      return "💰 Cantidad inválida. Por favor di el monto claramente (ej: 'enviar 10 USDC').";
     }
 
     if (error.includes("Invalid Ethereum address")) {
-      return "📍 Invalid wallet address. Please provide a valid Ethereum address (0x...).";
+      return "📍 Dirección de wallet inválida. Por favor proporciona una dirección Ethereum válida (0x...).";
     }
 
-    return "❌ Sorry, I couldn't process that voice command. Try typing /help for available commands.";
+    if (error.includes("Unsupported token")) {
+      return "❌ Token no soportado. Tokens disponibles: WETH, DAI, UNI, GOLD.";
+    }
+
+    if (error.includes("Coin name is required")) {
+      return "❌ Nombre de moneda requerido. Por favor di el nombre claramente (ej: 'Bitcoin', 'ONDO').";
+    }
+
+    return "❌ Lo siento, no pude procesar ese comando de voz. Intenta escribir /help para ver comandos disponibles.";
   }
 
   /**
-   * Generate command confirmation message
+   * Generate command confirmation message (bilingual)
    */
   getConfirmationMessage(command: ParsedCommand): string {
     switch (command.type) {
       case "SEND":
         return (
-          `🔐 Confirm Transaction\n\n` +
-          `Send: ${command.params?.amount} USDC\n` +
-          `To: ${command.params?.address}\n\n` +
-          `⚠️ Reply "CONFIRM" within 30 seconds to proceed.\n` +
-          `This action cannot be undone.`
+          `🔐 Confirmar Transacción\n\n` +
+          `Enviar: ${command.params?.amount} USDC\n` +
+          `A: ${command.params?.address}\n\n` +
+          `⚠️ Responde "CONFIRM" o "CONFIRMAR" en 30 segundos para proceder.\n` +
+          `Esta acción no se puede deshacer.`
         );
 
       case "CROSS_CHAIN_TRANSFER":
         return (
-          `🌉 Confirm Cross-Chain Transfer\n\n` +
-          `Amount: ${command.params?.amount} USDC\n` +
-          `To Network: ${command.params?.destinationNetwork}\n` +
-          `To Address: ${command.params?.address}\n\n` +
-          `⚠️ Reply "CONFIRM" within 30 seconds to proceed.\n` +
-          `Cross-chain transfers may take 10-20 minutes.`
+          `🌉 Confirmar Transferencia Entre Cadenas\n\n` +
+          `Cantidad: ${command.params?.amount} USDC\n` +
+          `A Red: ${command.params?.destinationNetwork}\n` +
+          `A Dirección: ${command.params?.address}\n\n` +
+          `⚠️ Responde "CONFIRM" o "CONFIRMAR" en 30 segundos para proceder.\n` +
+          `Las transferencias entre cadenas pueden tomar 10-20 minutos.`
+        );
+
+      case "SWAP":
+        const token = command.params?.outputToken || "tokens";
+        const amount = command.params?.outputAmount || "cantidad especificada";
+        return (
+          `💱 Confirmar Intercambio\n\n` +
+          `Intercambiar por: ${amount} ${token}\n` +
+          `Usando USDC de tu wallet\n\n` +
+          `⚠️ Responde "CONFIRM" o "CONFIRMAR" en 30 segundos para proceder.\n` +
+          `El precio puede variar ligeramente debido al slippage.`
         );
 
       default:
-        return "Please confirm this action by replying 'CONFIRM'.";
+        return "Por favor confirma esta acción respondiendo 'CONFIRM' o 'CONFIRMAR'.";
     }
   }
 
   /**
-   * Format command for display
+   * Format command for display (bilingual)
    */
   formatCommand(command: ParsedCommand): string {
     switch (command.type) {
       case "CREATE_WALLET":
-        return "📝 Creating a new wallet...";
+        return "📝 Creando una nueva wallet...";
+      
       case "CHECK_BALANCE":
-        return "💰 Checking your balance...";
+        return "💰 Revisando tu balance...";
+      
       case "GET_ADDRESS":
-        return "📍 Getting your wallet address...";
+        return "📍 Obteniendo tu dirección de wallet...";
+      
       case "GET_WALLET_ID":
-        return "🆔 Getting your wallet ID...";
+        return "🆔 Obteniendo tu Wallet ID...";
+      
       case "SWITCH_NETWORK":
-        return `🔄 Switching to ${command.params?.network}...`;
+        return `🔄 Cambiando a ${command.params?.network}...`;
+      
       case "LIST_NETWORKS":
-        return "🌐 Listing available networks...";
+        return "🌐 Listando redes disponibles...";
+      
       case "SEND":
-        return `💸 Preparing to send ${command.params?.amount} USDC...`;
+        return `💸 Preparando para enviar ${command.params?.amount} USDC...`;
+      
       case "CROSS_CHAIN_TRANSFER":
-        return `🌉 Preparing cross-chain transfer...`;
+        return `🌉 Preparando transferencia entre cadenas...`;
+      
+      case "SWAP":
+        const token = command.params?.outputToken || "tokens";
+        const amount = command.params?.outputAmount || "";
+        return `💱 Preparando intercambio por ${amount} ${token}...`;
+      
+      // Market data commands
+      case "CHECK_PRICE":
+        return `💰 Consultando precio de ${command.params?.coinName}...`;
+      
+      case "TOP_GAINERS_LOSERS":
+        return "📊 Obteniendo top ganadores y perdedores...";
+      
+      case "CHART_REQUEST":
+        const days = command.params?.days || "7";
+        return `📈 Obteniendo gráfico de ${command.params?.coinName} (${days} días)...`;
+      
+      case "TRENDING_COINS":
+        return "🔥 Obteniendo monedas en tendencia...";
+      
+      case "RWA_QUERY":
+        return "📊 Buscando información de tokens RWA...";
+      
       case "HELP":
-        return "📚 Here's what I can do...";
+        return "📚 Aquí está lo que puedo hacer...";
+      
       default:
-        return "❓ I didn't understand that command.";
+        return "❓ No entendí ese comando.";
+    }
+  }
+
+  /**
+   * Get suggested follow-up questions based on command type
+   */
+  getSuggestedQuestions(command: ParsedCommand): string[] {
+    switch (command.type) {
+      case "CHECK_PRICE":
+        return [
+          "¿Quieres ver el gráfico?",
+          "¿Te interesa comprar?",
+          "¿Necesitas más información?"
+        ];
+      
+      case "TOP_GAINERS_LOSERS":
+        return [
+          "¿Quieres ver detalles de alguna?",
+          "¿Te interesa el gráfico?",
+          "¿Quieres ver las tendencias?"
+        ];
+      
+      case "CHART_REQUEST":
+        return [
+          "¿Quieres ver otro período?",
+          "¿Te interesa el precio actual?",
+          "¿Necesitas más información?"
+        ];
+      
+      case "CHECK_BALANCE":
+        return [
+          "¿Quieres enviar USDC?",
+          "¿Te interesa hacer un swap?",
+          "¿Necesitas ver tu dirección?"
+        ];
+      
+      case "SWAP":
+        return [
+          "¿Quieres ver el precio actual?",
+          "¿Necesitas revisar tu balance?",
+          "¿Te interesa otra transacción?"
+        ];
+      
+      default:
+        return [];
     }
   }
 }

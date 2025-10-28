@@ -19,6 +19,7 @@ const config = {
   },
   elevenlabs: {
     apiKey: process.env.ELEVENLABS_API_KEY,
+    agentId: process.env.ELEVENLABS_AGENT_ID || "agent_5401k83ya0nbfv7b1hj2bxqta05k",
   },
   network: {
     name: process.env.NETWORK || "ARB-SEPOLIA",
