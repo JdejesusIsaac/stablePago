@@ -5,6 +5,11 @@
   /* Arc Network Design System - Dark Mode */
   --radius: 1rem;
   
+  /* Typography System */
+  --font-body: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-heading: var(--font-heading), var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  
   /* Background & Surfaces */
   --background: #0B0C10;
   --foreground: #FFFFFF;
@@ -133,8 +138,11 @@
   
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter', 'Satoshi', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    letter-spacing: -0.01em;
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.6;
+    letter-spacing: -0.011em;
+    font-weight: 400;
   }
 
   button:not([disabled]),
@@ -143,10 +151,101 @@
     transition: all 0.2s ease-in-out;
   }
   
-  /* Arc Network Typography */
+  /* Typography Scale - StablePago Design System */
   h1, h2, h3, h4, h5, h6 {
-    @apply font-bold tracking-tight;
+    font-family: var(--font-heading);
     letter-spacing: -0.02em;
+    line-height: 1.2;
+    font-weight: 700;
+    color: var(--foreground);
+  }
+  
+  /* H1 - Hero Headlines */
+  h1 {
+    font-size: clamp(2.5rem, 6vw, 4.5rem); /* 40px - 72px */
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+  }
+  
+  /* H2 - Section Headers */
+  h2 {
+    font-size: clamp(2rem, 4vw, 3rem); /* 32px - 48px */
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.025em;
+  }
+  
+  /* H3 - Subsection Headers */
+  h3 {
+    font-size: clamp(1.5rem, 3vw, 2rem); /* 24px - 32px */
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.02em;
+  }
+  
+  /* H4 - Card Titles */
+  h4 {
+    font-size: clamp(1.25rem, 2vw, 1.5rem); /* 20px - 24px */
+    font-weight: 600;
+    line-height: 1.4;
+  }
+  
+  /* H5 - Small Headers */
+  h5 {
+    font-size: 1.125rem; /* 18px */
+    font-weight: 600;
+    line-height: 1.5;
+  }
+  
+  /* H6 - Tiny Headers */
+  h6 {
+    font-size: 1rem; /* 16px */
+    font-weight: 600;
+    line-height: 1.5;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  
+  /* Body Text */
+  p {
+    font-family: var(--font-body);
+    font-size: 1rem; /* 16px */
+    font-weight: 400;
+    line-height: 1.6;
+    letter-spacing: -0.011em;
+    margin-bottom: 1rem;
+  }
+  
+  /* Lead Text - Larger body copy */
+  .text-lead {
+    font-size: 1.125rem; /* 18px */
+    line-height: 1.7;
+    font-weight: 400;
+  }
+  
+  /* Small Text */
+  small, .text-sm {
+    font-size: 0.875rem; /* 14px */
+    line-height: 1.5;
+  }
+  
+  /* Extra Small Text */
+  .text-xs {
+    font-size: 0.75rem; /* 12px */
+    line-height: 1.4;
+  }
+  
+  /* Font Weights */
+  .font-light { font-weight: 300; }
+  .font-normal { font-weight: 400; }
+  .font-medium { font-weight: 500; }
+  .font-semibold { font-weight: 600; }
+  .font-bold { font-weight: 700; }
+  
+  /* Form Elements - Use Inter for all inputs */
+  input, textarea, select, button {
+    font-family: var(--font-body);
   }
   
   /* Arc Network Buttons */
@@ -266,4 +365,187 @@
   .animate-glow-pulse {
     animation: glow-pulse 3s ease-in-out infinite;
   }
+}
+
+/* Enhanced Landing Page Styles */
+
+/* Gradient Animations */
+@keyframes gradient-xy {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Utility Classes */
+.animate-gradient-xy {
+  background-size: 400% 400%;
+  animation: gradient-xy 6s ease infinite;
+}
+
+.animate-shimmer {
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+/* Glass Morphism */
+.glass-morphism {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Enhanced Card Styles */
+.card-arc:hover {
+  border-color: rgba(66, 69, 74, 1);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+/* Button Enhancements */
+.btn-secondary-sm {
+  background: rgba(0, 240, 255, 0.1);
+  color: #00F0FF;
+  border: 1px solid #00F0FF;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.btn-secondary-sm:hover {
+  background: rgba(0, 240, 255, 0.2);
+}
+
+/* Enhanced Glow Effects */
+.glow-primary:hover {
+  box-shadow: 0 0 30px rgba(255, 0, 92, 0.6);
+}
+
+.shadow-glow-primary {
+  box-shadow: 0 0 30px rgba(255, 0, 92, 0.3);
+}
+
+.shadow-glow-success {
+  box-shadow: 0 0 30px rgba(0, 214, 143, 0.3);
+}
+
+/* Gradient Backgrounds */
+.bg-gradient-radial {
+  background: radial-gradient(circle, var(--tw-gradient-stops));
+}
+
+/* Text Gradients */
+.gradient-text-shimmer {
+  background: linear-gradient(
+    90deg,
+    #FF005C 0%,
+    #00F0FF 50%,
+    #FF005C 100%
+  );
+  background-size: 200% auto;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradient-xy 3s linear infinite;
+}
+
+/* Scroll Animations */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+/* Loading States */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Responsive Typography */
+@media (max-width: 640px) {
+  h1 {
+    font-size: clamp(2rem, 8vw, 3rem);
+  }
+  
+  h2 {
+    font-size: clamp(1.75rem, 6vw, 2.5rem);
+  }
+  
+  h3 {
+    font-size: clamp(1.25rem, 4vw, 1.75rem);
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Focus Styles */
+*:focus-visible {
+  outline: 2px solid #00F0FF;
+  outline-offset: 2px;
+}
+
+/* Smooth Scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Selection Colors */
+::selection {
+  background-color: rgba(255, 0, 92, 0.3);
+  color: white;
+}
+
+::-moz-selection {
+  background-color: rgba(255, 0, 92, 0.3);
+  color: white;
 }

@@ -55,8 +55,9 @@ const config: Config = {
         negative: '#FF005C',
       },
       fontFamily: {
-        sans: ['Inter', 'Satoshi', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
-        mono: ['JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', 'monospace'],
+        sans: ['var(--font-inter)', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+        heading: ['var(--font-heading)', 'var(--font-inter)', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'SF Mono', 'Menlo', 'Consolas', 'Liberation Mono', 'monospace'],
       },
       fontWeight: {
         normal: '400',
@@ -65,15 +66,21 @@ const config: Config = {
         bold: '700',
       },
       fontSize: {
-        'xs': ['0.75rem', { lineHeight: '1rem', letterSpacing: '0.05em' }],
-        'sm': ['0.875rem', { lineHeight: '1.25rem', letterSpacing: '0.01em' }],
-        'base': ['1rem', { lineHeight: '1.5rem', letterSpacing: '-0.01em' }],
-        'lg': ['1.125rem', { lineHeight: '1.75rem', letterSpacing: '-0.01em' }],
-        'xl': ['1.25rem', { lineHeight: '1.75rem', letterSpacing: '-0.02em' }],
-        '2xl': ['1.5rem', { lineHeight: '2rem', letterSpacing: '-0.02em' }],
-        '3xl': ['1.875rem', { lineHeight: '2.25rem', letterSpacing: '-0.02em' }],
-        '4xl': ['2.25rem', { lineHeight: '2.5rem', letterSpacing: '-0.02em' }],
-        '5xl': ['3rem', { lineHeight: '1', letterSpacing: '-0.02em' }],
+        // Body text sizes
+        'xs': ['0.75rem', { lineHeight: '1.4', letterSpacing: '0' }],      // 12px
+        'sm': ['0.875rem', { lineHeight: '1.5', letterSpacing: '-0.011em' }],  // 14px
+        'base': ['1rem', { lineHeight: '1.6', letterSpacing: '-0.011em' }],     // 16px - Body default
+        'lg': ['1.125rem', { lineHeight: '1.7', letterSpacing: '-0.011em' }],   // 18px - Lead text
+        'xl': ['1.25rem', { lineHeight: '1.4', letterSpacing: '-0.02em' }],     // 20px
+        
+        // Heading sizes
+        '2xl': ['1.5rem', { lineHeight: '1.3', letterSpacing: '-0.02em' }],     // 24px - H4
+        '3xl': ['2rem', { lineHeight: '1.3', letterSpacing: '-0.02em' }],       // 32px - H3
+        '4xl': ['2.5rem', { lineHeight: '1.15', letterSpacing: '-0.025em' }],   // 40px
+        '5xl': ['3rem', { lineHeight: '1.15', letterSpacing: '-0.025em' }],     // 48px - H2
+        '6xl': ['3.5rem', { lineHeight: '1.1', letterSpacing: '-0.03em' }],     // 56px
+        '7xl': ['4rem', { lineHeight: '1.1', letterSpacing: '-0.03em' }],       // 64px
+        '8xl': ['4.5rem', { lineHeight: '1.1', letterSpacing: '-0.03em' }],     // 72px - H1 Hero
       },
       borderRadius: {
         DEFAULT: '16px',
