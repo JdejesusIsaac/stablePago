@@ -9,12 +9,13 @@ interface DelegationSetupProps {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  previewMode?: boolean; // If true, show UI but disable confirmation
 }
 
 const TELEGRAM_BOT_ADDRESS = process.env.NEXT_PUBLIC_TELEGRAM_BOT_ADDRESS || "";
 const DEFAULT_DURATION_DAYS = 30;
 
-export function DelegationSetup({ open, onClose, onSuccess }: DelegationSetupProps) {
+export function DelegationSetup({ open, onClose, onSuccess, previewMode = true }: DelegationSetupProps) {
   const { wallet } = useWallet();
   const { user } = useAuth();
   
@@ -155,7 +156,13 @@ export function DelegationSetup({ open, onClose, onSuccess }: DelegationSetupPro
       open={open}
       onClose={handleClose}
       showBackButton={step === "configure" || step === "confirm"}
-      onBack={() => setStep(step === "confirm" ? "configure" : "configure")}
+      onBack={() => {
+        if (step === "confirm") {
+          setStep("configure"); // Go back to configure from confirm
+        } else {
+          handleClose(); // Close modal and return to dashboard from configure
+        }
+      }}
       title="Enable Wealth Automation"
     >
       {step === "configure" && (
@@ -473,8 +480,27 @@ export function DelegationSetup({ open, onClose, onSuccess }: DelegationSetupPro
             </div>
           </div>
 
-          <PrimaryButton disabled={!isValid} onClick={() => setStep("confirm")}>
-            Continue
+          {previewMode && (
+            <div className="rounded-xl bg-[#FFB800]/10 border border-[#FFB800]/30 p-4 text-sm">
+              <div className="flex items-start gap-3">
+                <svg className="w-5 h-5 text-[#FFB800] flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+                <div>
+                  <div className="font-semibold text-[#FFB800] mb-1">Preview Mode</div>
+                  <div className="text-[#A9B0B7]">
+                    This feature is currently in development. You can explore the interface, but delegation activation is temporarily disabled. Check back soon!
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <PrimaryButton 
+            disabled={!isValid || previewMode} 
+            onClick={() => setStep("confirm")}
+          >
+            {previewMode ? "Coming Soon" : "Continue"}
           </PrimaryButton>
         </div>
       )}
@@ -516,8 +542,16 @@ export function DelegationSetup({ open, onClose, onSuccess }: DelegationSetupPro
             </div>
           </div>
 
-          <PrimaryButton onClick={handleSetupDelegation}>
-            {delegationType === "auto-invest" ? "Confirm & Enable Auto-Invest" : "Confirm & Create Family Wallet"}
+          <PrimaryButton 
+            disabled={previewMode} 
+            onClick={handleSetupDelegation}
+          >
+            {previewMode 
+              ? "Feature Coming Soon" 
+              : delegationType === "auto-invest" 
+                ? "Confirm & Enable Auto-Invest" 
+                : "Confirm & Create Family Wallet"
+            }
           </PrimaryButton>
         </div>
       )}
