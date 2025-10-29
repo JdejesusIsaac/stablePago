@@ -2,6 +2,12 @@
 import { ElevenLabsClient } from "elevenlabs";
 import config from "@/config";
 
+/** Address aliases for easy sending */
+const ADDRESS_ALIASES: Record<string, `0x${string}`> = {
+  grandma: "0x5C479D97997763A9fBaE700B42d1cE88AA8263Ea",
+  // Add more aliases as needed
+};
+
 /** Supported wallet command types (expanded for MCP features) */
 export type CommandType =
   // Wallet operations
@@ -33,6 +39,7 @@ export interface ParsedCommand {
     // Wallet params
     amount?: string;
     address?: string;
+    alias?: string; // For address aliases like "grandma"
     network?: string;
     destinationNetwork?: string;
     // Trading params
@@ -138,7 +145,39 @@ class VoiceCommandService {
       // FINANCIAL OPERATIONS (Highest Priority - Require Confirmation)
       // ==========================================
 
-      // Send USDC (most specific first)
+      // Send USDC with alias WITH amount (e.g., "send 10 to grandma")
+      {
+        type: "SEND",
+        pattern: /(?:send|enviar|envia|envía|transfer)\s+(\d+\.?\d*)\s+(?:usdc\s+)?(?:to|a)\s+(grandma|abuela)/i,
+        extract: (match) => {
+          const alias = match[2].toLowerCase();
+          const mappedAddress = alias === 'abuela' ? ADDRESS_ALIASES.grandma : ADDRESS_ALIASES[alias as keyof typeof ADDRESS_ALIASES];
+          return {
+            amount: match[1],
+            address: mappedAddress,
+            alias: match[2], // Store original alias for confirmation message
+          };
+        },
+        requiresConfirmation: true,
+      },
+
+      // Send USDC with alias WITHOUT amount (e.g., "send to grandma")
+      {
+        type: "SEND",
+        pattern: /(?:send|enviar|envia|envía|transfer)\s+(?:usdc\s+)?(?:to|a)\s+(grandma|abuela)/i,
+        extract: (match) => {
+          const alias = match[1].toLowerCase();
+          const mappedAddress = alias === 'abuela' ? ADDRESS_ALIASES.grandma : ADDRESS_ALIASES[alias as keyof typeof ADDRESS_ALIASES];
+          return {
+            amount: "0.5", // Default small amount for testing
+            address: mappedAddress,
+            alias: match[1], // Store original alias for confirmation message
+          };
+        },
+        requiresConfirmation: true,
+      },
+
+      // Send USDC with full address WITH amount
       {
         type: "SEND",
         pattern: /(?:send|enviar|envia|envía|transfer)\s+(\d+\.?\d*)\s+(?:usdc\s+)?(?:to|a)\s+(0x[a-f0-9]{40})/i,
@@ -676,10 +715,13 @@ class VoiceCommandService {
   getConfirmationMessage(command: ParsedCommand): string {
     switch (command.type) {
       case "SEND":
+        const recipientDisplay = command.params?.alias 
+          ? `${command.params.alias} 👵 (${command.params.address})`
+          : command.params?.address;
         return (
           `🔐 Confirmar Transacción\n\n` +
           `Enviar: ${command.params?.amount} USDC\n` +
-          `A: ${command.params?.address}\n\n` +
+          `A: ${recipientDisplay}\n\n` +
           `⚠️ Responde "CONFIRM" o "CONFIRMAR" en 30 segundos para proceder.\n` +
           `Esta acción no se puede deshacer.`
         );

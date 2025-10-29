@@ -2,8 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
+
+// Lazy load heavy components to improve initial page load
+const VideoModal = lazy(() => import("@/components/VideoModal").then(mod => ({ default: mod.VideoModal })));
 
 // Animation variants
 const staggerContainer = {
@@ -92,6 +95,118 @@ const FloatingParticles = ({ count = 50 }: { count?: number }) => {
         />
       ))}
     </div>
+  );
+};
+
+// Progressive Disclosure Section Component
+const CollapsibleSection = ({
+  id,
+  title,
+  subtitle,
+  preview,
+  children,
+  defaultExpanded = false,
+  icon
+}: {
+  id: string;
+  title: string;
+  subtitle?: string;
+  preview: React.ReactNode;
+  children: React.ReactNode;
+  defaultExpanded?: boolean;
+  icon?: React.ReactNode;
+}) => {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+
+  const toggleExpanded = () => {
+    setIsExpanded(!isExpanded);
+    
+    // Analytics tracking
+    if (typeof window !== 'undefined' && (window as any).gtag) {
+      (window as any).gtag('event', 'section_toggle', {
+        section_id: id,
+        action: isExpanded ? 'collapse' : 'expand'
+      });
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      className="relative"
+    >
+      {/* Section Header */}
+      <div className="text-center mb-8">
+        {icon && <div className="flex justify-center mb-4">{icon}</div>}
+        <h2 className="text-4xl md:text-5xl font-bold mb-4">{title}</h2>
+        {subtitle && <p className="text-lg text-text-secondary max-w-2xl mx-auto">{subtitle}</p>}
+      </div>
+
+      {/* Preview (Always Visible) */}
+      {!isExpanded && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="relative"
+        >
+          {preview}
+          
+          {/* Gradient Fade Overlay */}
+          <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background via-background/80 to-transparent pointer-events-none" />
+        </motion.div>
+      )}
+
+      {/* Expand/Collapse Button */}
+      <motion.button
+        onClick={toggleExpanded}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        className={`
+          relative z-10 mx-auto mt-6 flex items-center gap-3 px-8 py-4 rounded-xl font-semibold
+          transition-all duration-300
+          ${isExpanded 
+            ? 'bg-surface-elevated border border-border hover:border-border-hover text-white' 
+            : 'bg-gradient-to-r from-primary to-secondary text-white shadow-glow-primary'
+          }
+        `}
+      >
+        {isExpanded ? (
+          <>
+            Show Less
+            <svg className="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+            </svg>
+          </>
+        ) : (
+          <>
+            See All {title}
+            <svg className="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </>
+        )}
+      </motion.button>
+
+      {/* Expanded Content */}
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.4, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <div className="pt-8">
+              {children}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 };
 
@@ -222,9 +337,14 @@ export default function EnhancedLandingPage() {
   const [selectedCountry, setSelectedCountry] = useState("PR");
   const [isSimulating, setIsSimulating] = useState(false);
   const [response, setResponse] = useState("");
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
 
   const { scrollYProgress } = useScroll();
   const opacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
+
+  // Video modal handlers
+  const openVideoModal = () => setIsVideoModalOpen(true);
+  const closeVideoModal = () => setIsVideoModalOpen(false);
 
   const handleWaitlistSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -456,7 +576,10 @@ export default function EnhancedLandingPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>
             </a>
-            <button className="group btn-secondary text-lg px-10 py-4 w-full sm:w-auto flex items-center justify-center gap-2">
+            <button 
+              onClick={openVideoModal}
+              className="group btn-secondary text-lg px-10 py-4 w-full sm:w-auto flex items-center justify-center gap-2"
+            >
               Watch Demo (2 min)
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z" />
@@ -493,37 +616,52 @@ export default function EnhancedLandingPage() {
         </div>
       </section>
 
-      {/* STEP 2: Enhanced Core Features Grid */}
+      {/* STEP 2: Enhanced Core Features Grid - PROGRESSIVE DISCLOSURE */}
       <section id="features" className="py-20 px-4 bg-surface">
         <div className="max-w-6xl mx-auto">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
+          <CollapsibleSection
+            id="features"
+            title="Core Features"
+            subtitle="Designed for simplicity, built for everyone"
+            icon={<span className="text-5xl">⚡</span>}
+            preview={
+              <>
+                {/* Preview: Show first 3 features only */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 px-4">
+                  {features.slice(0, 3).map((feature, idx) => (
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.1 }}
+                    >
+                      <FeatureCard feature={feature} featured={feature.featured} />
+                    </motion.div>
+                  ))}
+                </div>
+                <div className="text-center mt-6 text-text-muted text-sm">
+                  +{features.length - 3} more features • Voice AI • Family Delegation • Auto-Invest
+                </div>
+              </>
+            }
           >
-            <h2 className="text-5xl font-bold mb-4">Core Features</h2>
-            <p className="text-xl text-text-secondary max-w-3xl mx-auto">
-              Designed for simplicity, built for everyone
-            </p>
-          </motion.div>
+            {/* Full Features Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+              {features.map((feature, idx) => (
+                <motion.div
+                  key={idx}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: idx * 0.05 }}
+                >
+                  <FeatureCard feature={feature} featured={feature.featured} />
+                </motion.div>
+              ))}
+            </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-            {features.map((feature, idx) => (
-              <motion.div
-                key={idx}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: idx * 0.1 }}
-              >
-                <FeatureCard feature={feature} featured={feature.featured} />
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Delegation Features */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+            {/* Delegation Features */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
@@ -577,20 +715,21 @@ export default function EnhancedLandingPage() {
             </motion.div>
           </div>
 
-          {/* Feature Highlight Bar */}
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            className="rounded-2xl bg-gradient-to-r from-primary/10 via-secondary/10 to-primary/10 border border-primary/30 p-6 text-center"
-          >
-            <p className="text-lg font-semibold text-white mb-2">
-              ✨ All features work seamlessly together — from onboarding to wealth building
-            </p>
-            <p className="text-sm text-text-secondary">
-              Start with $1 • No minimum balance • Available 24/7 • Support in English & Spanish
-            </p>
-          </motion.div>
+            {/* Feature Highlight Bar */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              className="rounded-2xl bg-gradient-to-r from-primary/10 via-secondary/10 to-primary/10 border border-primary/30 p-6 text-center"
+            >
+              <p className="text-lg font-semibold text-white mb-2">
+                ✨ All features work seamlessly together — from onboarding to wealth building
+              </p>
+              <p className="text-sm text-text-secondary">
+                Start with $1 • No minimum balance • Available 24/7 • Support in English & Spanish
+              </p>
+            </motion.div>
+          </CollapsibleSection>
         </div>
       </section>
 
@@ -945,25 +1084,50 @@ export default function EnhancedLandingPage() {
         </div>
       </section>
 
-      {/* STEP 5: Interactive Voice Commands Section */}
+      {/* STEP 5: Interactive Voice Commands Section - PROGRESSIVE DISCLOSURE */}
       <section id="voice" className="py-20 px-4 bg-gradient-to-br from-secondary/5 via-primary/5 to-secondary/5">
         <div className="max-w-6xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
+          <CollapsibleSection
+            id="voice-commands"
+            title="Your Money Talks — Literally"
+            subtitle="Telegram Bot + ElevenLabs voice recognition in English or Spanish"
+            icon={<span className="text-5xl">🎙️</span>}
+            preview={
+              <>
+                {/* Preview: Show 2 command examples */}
+                <div className="max-w-2xl mx-auto">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 px-4">
+                    {presetCommands.slice(0, 2).map((cmd) => (
+                      <motion.div
+                        key={cmd.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: cmd.id * 0.1 }}
+                        className="p-6 rounded-xl bg-surface-elevated border border-border"
+                      >
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-2xl">
+                            {cmd.icon}
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-mono text-xs text-primary">
+                              "{cmd.text}"
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-sm text-text-muted">{cmd.action}</div>
+                      </motion.div>
+                    ))}
+                  </div>
+                  <div className="text-center mt-6 text-text-muted text-sm">
+                    Try {presetCommands.length - 2} more voice commands • Interactive simulator • Bilingual support
+                  </div>
+                </div>
+              </>
+            }
           >
-            <h2 className="text-5xl font-bold mb-6">
-              Your Money Talks — Literally. 🎙️
-            </h2>
-            <p className="text-xl text-text-secondary max-w-3xl mx-auto">
-              Telegram Bot + ElevenLabs voice recognition in English or Spanish
-            </p>
-          </motion.div>
-          
-          {/* Interactive Voice Simulator */}
-          <div className="mb-12">
+            {/* Full Interactive Voice Simulator */}
+            <div className="mb-12">
             <div className="max-w-3xl mx-auto">
               <div className="card-arc p-8">
                 <div className="flex items-center justify-between mb-6">
@@ -1046,27 +1210,28 @@ export default function EnhancedLandingPage() {
             </div>
           </div>
           
-          {/* Feature Highlights */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              { icon: "🗣️", title: "Natural Speech", desc: "Talk like you normally would" },
-              { icon: "🌐", title: "Bilingual", desc: "English & Spanish supported" },
-              { icon: "⚡", title: "Instant", desc: "Real-time response in <2 seconds" }
-            ].map((item, idx) => (
-              <motion.div 
-                key={idx}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: idx * 0.1 }}
-                className="card-arc p-6 text-center hover:scale-105 transition-transform"
-              >
-                <div className="text-4xl mb-3">{item.icon}</div>
-                <h4 className="font-bold mb-2">{item.title}</h4>
-                <p className="text-sm text-text-secondary">{item.desc}</p>
-              </motion.div>
-            ))}
-          </div>
+            {/* Feature Highlights */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[
+                { icon: "🗣️", title: "Natural Speech", desc: "Talk like you normally would" },
+                { icon: "🌐", title: "Bilingual", desc: "English & Spanish supported" },
+                { icon: "⚡", title: "Instant", desc: "Real-time response in <2 seconds" }
+              ].map((item, idx) => (
+                <motion.div 
+                  key={idx}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: idx * 0.1 }}
+                  className="card-arc p-6 text-center hover:scale-105 transition-transform"
+                >
+                  <div className="text-4xl mb-3">{item.icon}</div>
+                  <h4 className="font-bold mb-2">{item.title}</h4>
+                  <p className="text-sm text-text-secondary">{item.desc}</p>
+                </motion.div>
+              ))}
+            </div>
+          </CollapsibleSection>
         </div>
       </section>
 
@@ -1240,25 +1405,44 @@ export default function EnhancedLandingPage() {
         </div>
       </section>
 
-      {/* STEP 7: Enhanced Caribbean Focus */}
+      {/* STEP 7: Enhanced Caribbean Focus - PROGRESSIVE DISCLOSURE */}
       <section className="py-20 px-4 bg-gradient-to-b from-background to-surface">
         <div className="max-w-6xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
+          <CollapsibleSection
+            id="caribbean-focus"
+            title="Built for the Caribbean"
+            subtitle="Reaching the unbanked, reducing transfer costs by 80%, bringing investment tools to families previously left out of finance"
+            icon={<span className="text-5xl">🌍</span>}
+            preview={
+              <>
+                {/* Preview: Show flags and country names only */}
+                <div className="grid grid-cols-3 gap-8 max-w-3xl mx-auto px-4">
+                  {[
+                    { flag: '🇵🇷', name: 'Puerto Rico', volume: '$2.8B/year' },
+                    { flag: '🇩🇴', name: 'Dominican Republic', volume: '$8.6B/year' },
+                    { flag: '🇭🇹', name: 'Haiti', volume: '$3.8B/year' }
+                  ].map((country, idx) => (
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: idx * 0.1 }}
+                      className="text-center"
+                    >
+                      <div className="text-6xl mb-3">{country.flag}</div>
+                      <div className="font-bold text-sm mb-1">{country.name}</div>
+                      <div className="text-xs text-primary">{country.volume}</div>
+                    </motion.div>
+                  ))}
+                </div>
+                <div className="text-center mt-8 text-text-muted text-sm">
+                  $15.1B total remittance volume • 25.8M people • Full stats & features
+                </div>
+              </>
+            }
           >
-            <h2 className="text-5xl font-bold mb-4">
-              🌍 Built for the Caribbean, Ready for the World
-            </h2>
-            <p className="text-xl text-text-secondary max-w-3xl mx-auto">
-              Reaching the unbanked, reducing transfer costs by 80%, and bringing investment tools to families previously left out of finance
-            </p>
-          </motion.div>
-          
-          {/* Country Cards with Enhanced Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            {/* Full Country Cards with Enhanced Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
             {[
               {
                 code: 'PR',
@@ -1374,34 +1558,35 @@ export default function EnhancedLandingPage() {
             ))}
           </div>
           
-          {/* Regional Impact */}
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            className="rounded-2xl bg-gradient-to-r from-primary/10 via-secondary/10 to-primary/10 border border-primary/30 p-8"
-          >
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-              <div>
-                <div className="text-4xl font-bold text-primary mb-2">
-                  <CountUp end={15.1} decimals={1} suffix="B" prefix="$" />
+            {/* Regional Impact */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              className="rounded-2xl bg-gradient-to-r from-primary/10 via-secondary/10 to-primary/10 border border-primary/30 p-8"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+                <div>
+                  <div className="text-4xl font-bold text-primary mb-2">
+                    <CountUp end={15.1} decimals={1} suffix="B" prefix="$" />
+                  </div>
+                  <div className="text-sm text-text-secondary">Total Annual Remittances</div>
                 </div>
-                <div className="text-sm text-text-secondary">Total Annual Remittances</div>
-              </div>
-              <div>
-                <div className="text-4xl font-bold text-secondary mb-2">
-                  <CountUp end={25.8} decimals={1} suffix="M" />
+                <div>
+                  <div className="text-4xl font-bold text-secondary mb-2">
+                    <CountUp end={25.8} decimals={1} suffix="M" />
+                  </div>
+                  <div className="text-sm text-text-secondary">People We Can Help</div>
                 </div>
-                <div className="text-sm text-text-secondary">People We Can Help</div>
-              </div>
-              <div>
-                <div className="text-4xl font-bold text-success mb-2">
-                  <CountUp end={18} suffix="%" />
+                <div>
+                  <div className="text-4xl font-bold text-success mb-2">
+                    <CountUp end={18} suffix="%" />
+                  </div>
+                  <div className="text-sm text-text-secondary">Average of Regional GDP</div>
                 </div>
-                <div className="text-sm text-text-secondary">Average of Regional GDP</div>
               </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          </CollapsibleSection>
         </div>
       </section>
 
@@ -1574,42 +1759,65 @@ export default function EnhancedLandingPage() {
         </div>
       </section>
 
-      {/* STEP 9: Enhanced Partners Section */}
+      {/* STEP 9: Enhanced Partners Section - PROGRESSIVE DISCLOSURE */}
       <section id="partners" className="py-20 px-4 bg-surface">
         <div className="max-w-6xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
+          <CollapsibleSection
+            id="technology-partners"
+            title="Powered by Trusted Infrastructure"
+            subtitle="Built on audited, enterprise-grade rails — non-custodial wallets, regulated stablecoins, and institutional-grade security"
+            icon={<span className="text-5xl">🏦</span>}
+            preview={
+              <>
+                {/* Trust Badges - Always Visible */}
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex flex-wrap items-center justify-center gap-6 mb-12 px-4"
+                >
+                  {[
+                    { icon: "🛡️", label: "SOC 2 Certified" },
+                    { icon: "🔒", label: "Bank-Grade Security" },
+                    { icon: "✅", label: "Regulatory Compliant" }
+                  ].map((badge, idx) => (
+                    <div key={idx} className="flex items-center gap-2 px-4 py-2 rounded-full bg-surface-elevated border border-border">
+                      <span className="text-xl">{badge.icon}</span>
+                      <span className="text-sm font-semibold">{badge.label}</span>
+                    </div>
+                  ))}
+                </motion.div>
+
+                {/* Preview: Simple partner logo grid */}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-8 max-w-4xl mx-auto px-4">
+                  {[
+                    { name: "Circle", icon: "⭕", tagline: "USDC & CCTP" },
+                    { name: "Crossmint", icon: "⚡", tagline: "Smart Wallets" },
+                    { name: "Uniswap", icon: "🔄", tagline: "DeFi Access" },
+                    { name: "CoinGecko", icon: "📊", tagline: "Market Data" },
+                    { name: "ElevenLabs", icon: "🎙️", tagline: "Voice AI" },
+                    { name: "Arc Network", icon: "🔷", tagline: "L1 Blockchain" }
+                  ].map((partner, idx) => (
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.05 }}
+                      className="text-center p-4 rounded-xl bg-surface-elevated border border-border"
+                    >
+                      <div className="text-4xl mb-2">{partner.icon}</div>
+                      <div className="font-bold text-sm mb-1">{partner.name}</div>
+                      <div className="text-xs text-text-muted">{partner.tagline}</div>
+                    </motion.div>
+                  ))}
+                </div>
+                <div className="text-center mt-8 text-text-muted text-sm">
+                  View detailed partner information and metrics
+                </div>
+              </>
+            }
           >
-            <h2 className="text-5xl font-bold mb-4">🏦 Powered by Trusted Infrastructure</h2>
-            <p className="text-xl text-text-secondary max-w-3xl mx-auto">
-              Built on audited, enterprise-grade rails — non-custodial wallets, regulated stablecoins, and institutional-grade security.
-            </p>
-          </motion.div>
-          
-          {/* Trust Badges */}
-          <motion.div 
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            className="flex flex-wrap items-center justify-center gap-6 mb-16"
-          >
-            {[
-              { icon: "🛡️", label: "SOC 2 Certified", color: "success" },
-              { icon: "🔒", label: "Bank-Grade Security", color: "primary" },
-              { icon: "✅", label: "Regulatory Compliant", color: "secondary" }
-            ].map((badge, idx) => (
-              <div key={idx} className="flex items-center gap-2 px-4 py-2 rounded-full bg-surface-elevated border border-border">
-                <span className="text-xl">{badge.icon}</span>
-                <span className="text-sm font-semibold">{badge.label}</span>
-              </div>
-            ))}
-          </motion.div>
-          
-          {/* Partner Cards with Context */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+            {/* Full Partner Cards with Context */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
             {[
               {
                 name: "Circle",
@@ -1707,37 +1915,38 @@ export default function EnhancedLandingPage() {
             ))}
           </div>
           
-          {/* Security & Compliance Footer */}
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            className="rounded-2xl bg-gradient-to-r from-success/10 via-secondary/10 to-success/10 border border-success/30 p-8"
-          >
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-              <div>
-                <div className="flex items-center justify-center mb-2 text-4xl">
-                  🛡️
+            {/* Security & Compliance Footer */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              className="rounded-2xl bg-gradient-to-r from-success/10 via-secondary/10 to-success/10 border border-success/30 p-8"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+                <div>
+                  <div className="flex items-center justify-center mb-2 text-4xl">
+                    🛡️
+                  </div>
+                  <div className="font-bold mb-1">Non-Custodial</div>
+                  <div className="text-sm text-text-secondary">You own your keys</div>
                 </div>
-                <div className="font-bold mb-1">Non-Custodial</div>
-                <div className="text-sm text-text-secondary">You own your keys</div>
-              </div>
-              <div>
-                <div className="flex items-center justify-center mb-2 text-4xl">
-                  🔒
+                <div>
+                  <div className="flex items-center justify-center mb-2 text-4xl">
+                    🔒
+                  </div>
+                  <div className="font-bold mb-1">End-to-End Encrypted</div>
+                  <div className="text-sm text-text-secondary">Bank-grade security</div>
                 </div>
-                <div className="font-bold mb-1">End-to-End Encrypted</div>
-                <div className="text-sm text-text-secondary">Bank-grade security</div>
-              </div>
-              <div>
-                <div className="flex items-center justify-center mb-2 text-4xl">
-                  ✅
+                <div>
+                  <div className="flex items-center justify-center mb-2 text-4xl">
+                    ✅
+                  </div>
+                  <div className="font-bold mb-1">Regulatory Compliant</div>
+                  <div className="text-sm text-text-secondary">KYC/AML + Travel Rule</div>
                 </div>
-                <div className="font-bold mb-1">Regulatory Compliant</div>
-                <div className="text-sm text-text-secondary">KYC/AML + Travel Rule</div>
               </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          </CollapsibleSection>
         </div>
       </section>
 
@@ -1803,6 +2012,17 @@ export default function EnhancedLandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* Video Modal - Lazy loaded */}
+      {isVideoModalOpen && (
+        <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center"><div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full" /></div>}>
+          <VideoModal
+            isOpen={isVideoModalOpen}
+            onClose={closeVideoModal}
+            videoUrl="/videos/demo.mp4"
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

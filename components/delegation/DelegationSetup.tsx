@@ -21,28 +21,36 @@ export function DelegationSetup({ open, onClose, onSuccess }: DelegationSetupPro
   const [step, setStep] = useState<"configure" | "confirm" | "processing" | "success" | "error">("configure");
   const [error, setError] = useState<string | null>(null);
   
-  // Spending limits
-  const [dailyLimit, setDailyLimit] = useState("50");
-  const [weeklyLimit, setWeeklyLimit] = useState("150");
-  const [perItemLimit, setPerItemLimit] = useState("30");
-  const [approvalThreshold, setApprovalThreshold] = useState("40");
-  const [duration, setDuration] = useState("30"); // days
+  // Delegation type selection
+  const [delegationType, setDelegationType] = useState<"auto-invest" | "family-wallet">("auto-invest");
   
-  // Categories
-  const [allowedCategories, setAllowedCategories] = useState<string[]>(["grocery", "pharmacy"]);
+  // Investment limits (for auto-invest)
+  const [dailyLimit, setDailyLimit] = useState("20");
+  const [weeklyLimit, setWeeklyLimit] = useState("100");
+  const [monthlyLimit, setMonthlyLimit] = useState("400");
+  const [approvalThreshold, setApprovalThreshold] = useState("50");
+  const [duration, setDuration] = useState("90"); // days
+  
+  // Investment allocation (for auto-invest)
+  const [investmentAllocation, setInvestmentAllocation] = useState<string[]>(["usdc", "paxg"]);
 
-  const categories = [
-    { id: "grocery", label: "🛒 Grocery" },
-    { id: "pharmacy", label: "💊 Pharmacy" },
-    { id: "restaurant", label: "🍔 Restaurant" },
-    { id: "retail", label: "🏪 Retail" },
+  // Family delegation (for family-wallet)
+  const [withdrawOnlyMode, setWithdrawOnlyMode] = useState(true);
+  const [dailyWithdrawLimit, setDailyWithdrawLimit] = useState("50");
+  const [recipientName, setRecipientName] = useState("");
+
+  const investmentAssets = [
+    { id: "usdc", label: "💵 USDC Savings", description: "Dollar-denominated savings vault" },
+    { id: "paxg", label: "🏆 Gold (PAXG)", description: "Inflation hedge" },
+    { id: "ondo", label: "📊 Treasuries (ONDO)", description: "4-5% APY safe yield" },
+    { id: "usyc", label: "🏛️ US Yield Coin", description: "Treasury-backed stablecoin" },
   ];
 
-  const toggleCategory = (categoryId: string) => {
-    if (allowedCategories.includes(categoryId)) {
-      setAllowedCategories(allowedCategories.filter((c) => c !== categoryId));
+  const toggleAsset = (assetId: string) => {
+    if (investmentAllocation.includes(assetId)) {
+      setInvestmentAllocation(investmentAllocation.filter((c) => c !== assetId));
     } else {
-      setAllowedCategories([...allowedCategories, categoryId]);
+      setInvestmentAllocation([...investmentAllocation, assetId]);
     }
   };
 
@@ -76,21 +84,32 @@ export function DelegationSetup({ open, onClose, onSuccess }: DelegationSetupPro
       const validUntil = Date.now() + parseInt(duration) * 24 * 60 * 60 * 1000;
 
       // Save delegation metadata to Supabase
-      // (Spending limits are enforced by bot checking Supabase, not by Crossmint)
+      const delegationData = delegationType === "auto-invest" ? {
+        user_id: user?.id,
+        bot_address: TELEGRAM_BOT_ADDRESS,
+        delegation_type: "auto_invest",
+        daily_limit: parseFloat(dailyLimit),
+        weekly_limit: parseFloat(weeklyLimit),
+        monthly_limit: parseFloat(monthlyLimit),
+        approval_threshold: parseFloat(approvalThreshold),
+        investment_allocation: investmentAllocation,
+        valid_until: new Date(validUntil).toISOString(),
+        delegation_id: "active",
+      } : {
+        user_id: user?.id,
+        bot_address: TELEGRAM_BOT_ADDRESS,
+        delegation_type: "family_wallet",
+        recipient_name: recipientName,
+        withdraw_only: withdrawOnlyMode,
+        daily_limit: parseFloat(dailyWithdrawLimit),
+        valid_until: new Date(validUntil).toISOString(),
+        delegation_id: "active",
+      };
+
       const response = await fetch("/api/delegation/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: user?.id,
-          bot_address: TELEGRAM_BOT_ADDRESS,
-          daily_limit: parseFloat(dailyLimit),
-          weekly_limit: parseFloat(weeklyLimit),
-          per_item_limit: parseFloat(perItemLimit),
-          approval_threshold: parseFloat(approvalThreshold),
-          allowed_categories: allowedCategories,
-          valid_until: new Date(validUntil).toISOString(),
-          delegation_id: "active", // Crossmint doesn't return an ID
-        }),
+        body: JSON.stringify(delegationData),
       });
 
       if (!response.ok) {
@@ -122,12 +141,14 @@ export function DelegationSetup({ open, onClose, onSuccess }: DelegationSetupPro
     onClose();
   };
 
-  const isValid =
-    parseFloat(dailyLimit) > 0 &&
-    parseFloat(weeklyLimit) >= parseFloat(dailyLimit) &&
-    parseFloat(perItemLimit) <= parseFloat(dailyLimit) &&
-    parseFloat(approvalThreshold) > 0 &&
-    allowedCategories.length > 0;
+  const isValid = delegationType === "auto-invest"
+    ? parseFloat(dailyLimit) > 0 &&
+      parseFloat(weeklyLimit) >= parseFloat(dailyLimit) &&
+      parseFloat(monthlyLimit) >= parseFloat(weeklyLimit) &&
+      parseFloat(approvalThreshold) > 0 &&
+      investmentAllocation.length > 0
+    : recipientName.trim().length > 0 &&
+      parseFloat(dailyWithdrawLimit) > 0;
 
   return (
     <Modal
@@ -135,137 +156,320 @@ export function DelegationSetup({ open, onClose, onSuccess }: DelegationSetupPro
       onClose={handleClose}
       showBackButton={step === "configure" || step === "confirm"}
       onBack={() => setStep(step === "confirm" ? "configure" : "configure")}
-      title="Enable Telegram Shopping"
+      title="Enable Wealth Automation"
     >
       {step === "configure" && (
-        <div className="flex w-full flex-col gap-4">
-          <div className="rounded-lg bg-blue-50 p-4 text-sm text-blue-800">
-            🤖 <strong>Telegram Bot Shopping</strong>
-            <br />
-            Allow the Telegram bot to make purchases on your behalf with these limits.
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-slate-700">Daily Limit (USD)</label>
-            <input
-              type="number"
-              value={dailyLimit}
-              onChange={(e) => setDailyLimit(e.target.value)}
-              className="rounded-lg border border-slate-300 px-4 py-2"
-              placeholder="50.00"
-              min="1"
-              step="1"
-            />
-            <div className="text-xs text-slate-500">Maximum spending per day</div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-slate-700">Weekly Limit (USD)</label>
-            <input
-              type="number"
-              value={weeklyLimit}
-              onChange={(e) => setWeeklyLimit(e.target.value)}
-              className="rounded-lg border border-slate-300 px-4 py-2"
-              placeholder="150.00"
-              min={dailyLimit}
-              step="1"
-            />
-            <div className="text-xs text-slate-500">Maximum spending per week</div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-slate-700">Per Item Limit (USD)</label>
-            <input
-              type="number"
-              value={perItemLimit}
-              onChange={(e) => setPerItemLimit(e.target.value)}
-              className="rounded-lg border border-slate-300 px-4 py-2"
-              placeholder="30.00"
-              min="1"
-              max={dailyLimit}
-              step="1"
-            />
-            <div className="text-xs text-slate-500">Maximum price per single item</div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-slate-700">
-              Approval Required Above (USD)
+        <div className="flex w-full flex-col gap-6">
+          {/* Delegation Type Selection */}
+          <div className="flex flex-col gap-3">
+            <label className="text-sm font-semibold text-white uppercase tracking-wide">
+              Choose Delegation Type
             </label>
-            <input
-              type="number"
-              value={approvalThreshold}
-              onChange={(e) => setApprovalThreshold(e.target.value)}
-              className="rounded-lg border border-slate-300 px-4 py-2"
-              placeholder="40.00"
-              min="1"
-              step="1"
-            />
-            <div className="text-xs text-slate-500">
-              Purchases above this amount need your approval
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setDelegationType("auto-invest")}
+                className={`rounded-xl border-2 p-4 text-left transition-all duration-200 ${
+                  delegationType === "auto-invest"
+                    ? "border-[#FF005C] bg-[#FF005C]/10 shadow-glow-primary"
+                    : "border-[#2A2D32] bg-[#1C1F24] hover:border-[#42454A]"
+                }`}
+              >
+                <div className="text-2xl mb-2">📈</div>
+                <div className={`font-semibold ${delegationType === "auto-invest" ? "text-[#FF005C]" : "text-white"}`}>
+                  Auto-Invest
+                </div>
+                <div className="text-xs text-[#A9B0B7] mt-1">
+                  Automate wealth building with RWA tokens
+                </div>
+              </button>
+              
+              <button
+                onClick={() => setDelegationType("family-wallet")}
+                className={`rounded-xl border-2 p-4 text-left transition-all duration-200 ${
+                  delegationType === "family-wallet"
+                    ? "border-[#00F0FF] bg-[#00F0FF]/10 shadow-glow-secondary"
+                    : "border-[#2A2D32] bg-[#1C1F24] hover:border-[#42454A]"
+                }`}
+              >
+                <div className="text-2xl mb-2">👨‍👩‍👧‍👦</div>
+                <div className={`font-semibold ${delegationType === "family-wallet" ? "text-[#00F0FF]" : "text-white"}`}>
+                  Family Wallet
+                </div>
+                <div className="text-xs text-[#A9B0B7] mt-1">
+                  Share access with family members
+                </div>
+              </button>
             </div>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-slate-700">Allowed Categories</label>
-            <div className="grid grid-cols-2 gap-2">
-              {categories.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => toggleCategory(cat.id)}
-                  className={`rounded-lg border-2 p-3 text-left transition ${
-                    allowedCategories.includes(cat.id)
-                      ? "border-emerald-500 bg-emerald-50 text-emerald-900"
-                      : "border-slate-300 bg-white text-slate-600"
-                  }`}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
-            <div className="text-xs text-slate-500">
-              Bot can only buy from selected categories
-            </div>
+          {/* Info Box */}
+          <div className={`rounded-xl border p-4 text-sm ${
+            delegationType === "auto-invest"
+              ? "bg-[#FF005C]/10 border-[#FF005C]/30 text-[#FF005C]"
+              : "bg-[#00F0FF]/10 border-[#00F0FF]/30 text-[#00F0FF]"
+          }`}>
+            {delegationType === "auto-invest" ? (
+              <>
+                <strong>💰 Auto-Investment Delegation</strong>
+                <br />
+                <span className="text-[#A9B0B7]">
+                  Allow the Telegram bot to automatically invest in RWA tokens (gold, treasuries) on your behalf using Dollar-Cost Averaging. Build wealth passively while you focus on life.
+                </span>
+              </>
+            ) : (
+              <>
+                <strong>👨‍👩‍👧 Family Wallet Delegation</strong>
+                <br />
+                <span className="text-[#A9B0B7]">
+                  Create a controlled wallet for family members (e.g., elderly parents) to withdraw funds for daily needs while maintaining oversight and spending limits.
+                </span>
+              </>
+            )}
           </div>
 
+          {/* Auto-Investment Form */}
+          {delegationType === "auto-invest" && (
+            <>
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-semibold text-white">Daily Investment Limit (USD)</label>
+                <input
+                  type="number"
+                  value={dailyLimit}
+                  onChange={(e) => setDailyLimit(e.target.value)}
+                  className="rounded-xl border border-[#2A2D32] bg-[#0B0C10] px-4 py-3 text-base text-white placeholder:text-[#6B7280] focus:border-[#FF005C] focus:outline-none focus:ring-2 focus:ring-[#FF005C]/20"
+                  placeholder="20"
+                  min="1"
+                  step="1"
+                />
+                <div className="text-xs text-[#6B7280]">Maximum amount to invest per day</div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-semibold text-white">Weekly Investment Limit (USD)</label>
+                <input
+                  type="number"
+                  value={weeklyLimit}
+                  onChange={(e) => setWeeklyLimit(e.target.value)}
+                  className="rounded-xl border border-[#2A2D32] bg-[#0B0C10] px-4 py-3 text-base text-white placeholder:text-[#6B7280] focus:border-[#FF005C] focus:outline-none focus:ring-2 focus:ring-[#FF005C]/20"
+                  placeholder="100"
+                  min={dailyLimit}
+                  step="1"
+                />
+                <div className="text-xs text-[#6B7280]">Maximum amount to invest per week</div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-semibold text-white">Monthly Investment Limit (USD)</label>
+                <input
+                  type="number"
+                  value={monthlyLimit}
+                  onChange={(e) => setMonthlyLimit(e.target.value)}
+                  className="rounded-xl border border-[#2A2D32] bg-[#0B0C10] px-4 py-3 text-base text-white placeholder:text-[#6B7280] focus:border-[#FF005C] focus:outline-none focus:ring-2 focus:ring-[#FF005C]/20"
+                  placeholder="400"
+                  min={weeklyLimit}
+                  step="1"
+                />
+                <div className="text-xs text-[#6B7280]">Maximum amount to invest per month</div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-semibold text-white">
+                  Approval Required Above (USD)
+                </label>
+                <input
+                  type="number"
+                  value={approvalThreshold}
+                  onChange={(e) => setApprovalThreshold(e.target.value)}
+                  className="rounded-xl border border-[#2A2D32] bg-[#0B0C10] px-4 py-3 text-base text-white placeholder:text-[#6B7280] focus:border-[#FF005C] focus:outline-none focus:ring-2 focus:ring-[#FF005C]/20"
+                  placeholder="50"
+                  min="1"
+                  step="1"
+                />
+                <div className="text-xs text-[#6B7280]">
+                  Investments above this amount need your approval
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <label className="text-sm font-semibold text-white">Investment Assets</label>
+                <div className="grid grid-cols-1 gap-3">
+                  {investmentAssets.map((asset) => (
+                    <button
+                      key={asset.id}
+                      onClick={() => toggleAsset(asset.id)}
+                      className={`rounded-xl border-2 p-4 text-left transition-all duration-200 ${
+                        investmentAllocation.includes(asset.id)
+                          ? "border-[#FF005C] bg-[#FF005C]/10"
+                          : "border-[#2A2D32] bg-[#1C1F24] hover:border-[#42454A]"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="text-2xl">{asset.label.split(" ")[0]}</div>
+                        <div className="flex-1">
+                          <div className={`font-semibold ${
+                            investmentAllocation.includes(asset.id) ? "text-[#FF005C]" : "text-white"
+                          }`}>
+                            {asset.label.substring(asset.label.indexOf(" ") + 1)}
+                          </div>
+                          <div className="text-xs text-[#A9B0B7] mt-1">{asset.description}</div>
+                        </div>
+                        {investmentAllocation.includes(asset.id) && (
+                          <div className="text-[#FF005C]">✓</div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <div className="text-xs text-[#6B7280]">
+                  Bot will automatically invest in selected assets using Dollar-Cost Averaging
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Family Wallet Form */}
+          {delegationType === "family-wallet" && (
+            <>
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-semibold text-white">Recipient Name</label>
+                <input
+                  type="text"
+                  value={recipientName}
+                  onChange={(e) => setRecipientName(e.target.value)}
+                  className="rounded-xl border border-[#2A2D32] bg-[#0B0C10] px-4 py-3 text-base text-white placeholder:text-[#6B7280] focus:border-[#00F0FF] focus:outline-none focus:ring-2 focus:ring-[#00F0FF]/20"
+                  placeholder="e.g., Grandma Maria"
+                  maxLength={50}
+                />
+                <div className="text-xs text-[#6B7280]">Who will have access to this wallet?</div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-semibold text-white">Daily Withdrawal Limit (USD)</label>
+                <input
+                  type="number"
+                  value={dailyWithdrawLimit}
+                  onChange={(e) => setDailyWithdrawLimit(e.target.value)}
+                  className="rounded-xl border border-[#2A2D32] bg-[#0B0C10] px-4 py-3 text-base text-white placeholder:text-[#6B7280] focus:border-[#00F0FF] focus:outline-none focus:ring-2 focus:ring-[#00F0FF]/20"
+                  placeholder="50"
+                  min="1"
+                  step="1"
+                />
+                <div className="text-xs text-[#6B7280]">Maximum amount they can withdraw per day</div>
+              </div>
+
+              <div className="flex items-center gap-3 rounded-xl border border-[#2A2D32] bg-[#1C1F24] p-4">
+                <input
+                  type="checkbox"
+                  id="withdraw-only"
+                  checked={withdrawOnlyMode}
+                  onChange={(e) => setWithdrawOnlyMode(e.target.checked)}
+                  className="h-5 w-5 rounded border-[#2A2D32] bg-[#0B0C10] text-[#00F0FF] focus:ring-[#00F0FF]"
+                />
+                <label htmlFor="withdraw-only" className="flex-1 text-sm text-white cursor-pointer">
+                  <strong>Withdraw-Only Mode</strong>
+                  <div className="text-xs text-[#A9B0B7] mt-1">
+                    They can only withdraw to their bank account. No transfers or investments.
+                  </div>
+                </label>
+              </div>
+            </>
+          )}
+
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-slate-700">Duration (Days)</label>
+            <label className="text-sm font-semibold text-white">Duration (Days)</label>
             <select
               value={duration}
               onChange={(e) => setDuration(e.target.value)}
-              className="rounded-lg border border-slate-300 px-4 py-2"
+              className="rounded-xl border border-[#2A2D32] bg-[#0B0C10] px-4 py-3 text-base text-white focus:border-[#FF005C] focus:outline-none focus:ring-2 focus:ring-[#FF005C]/20"
             >
               <option value="7">7 days</option>
               <option value="14">14 days</option>
               <option value="30">30 days</option>
-              <option value="90">90 days</option>
+              <option value="90">90 days (Recommended for wealth building)</option>
+              <option value="180">180 days</option>
+              <option value="365">1 year</option>
             </select>
-            <div className="text-xs text-slate-500">
-              How long should this delegation last?
+            <div className="text-xs text-[#6B7280]">
+              How long should this delegation remain active?
             </div>
           </div>
 
-          <div className="rounded-lg bg-slate-50 p-4">
-            <div className="mb-2 text-sm font-semibold text-slate-900">Summary</div>
-            <div className="space-y-1 text-sm text-slate-600">
-              <div>
-                • Daily: <strong>${dailyLimit}</strong>
-              </div>
-              <div>
-                • Weekly: <strong>${weeklyLimit}</strong>
-              </div>
-              <div>
-                • Per Item: <strong>${perItemLimit}</strong>
-              </div>
-              <div>
-                • Approval needed: <strong>${approvalThreshold}+</strong>
-              </div>
-              <div>
-                • Categories: <strong>{allowedCategories.join(", ")}</strong>
-              </div>
-              <div>
-                • Valid for: <strong>{duration} days</strong>
-              </div>
+          {/* Summary Box */}
+          <div className="rounded-xl bg-[#1C1F24] border border-[#2A2D32] p-4">
+            <div className="mb-3 text-sm font-semibold text-white uppercase tracking-wide">
+              📋 Configuration Summary
+            </div>
+            <div className="space-y-2 text-sm text-[#A9B0B7]">
+              {delegationType === "auto-invest" ? (
+                <>
+                  <div className="flex justify-between">
+                    <span>Type:</span>
+                    <strong className="text-[#FF005C]">Auto-Investment</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Daily Limit:</span>
+                    <strong className="text-white">${dailyLimit}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Weekly Limit:</span>
+                    <strong className="text-white">${weeklyLimit}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Monthly Limit:</span>
+                    <strong className="text-white">${monthlyLimit}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Approval Above:</span>
+                    <strong className="text-white">${approvalThreshold}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Assets:</span>
+                    <strong className="text-white">{investmentAllocation.length} selected</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Duration:</span>
+                    <strong className="text-white">{duration} days</strong>
+                  </div>
+                  {investmentAllocation.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-[#2A2D32]">
+                      <div className="text-xs text-[#A9B0B7] mb-2">Selected Assets:</div>
+                      <div className="flex flex-wrap gap-2">
+                        {investmentAllocation.map(assetId => {
+                          const asset = investmentAssets.find(a => a.id === assetId);
+                          return asset ? (
+                            <span key={assetId} className="px-2 py-1 rounded-lg bg-[#FF005C]/20 text-[#FF005C] text-xs font-medium">
+                              {asset.label.split(" ")[0]} {asset.label.substring(asset.label.indexOf(" ") + 1).split(" ")[0]}
+                            </span>
+                          ) : null;
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between">
+                    <span>Type:</span>
+                    <strong className="text-[#00F0FF]">Family Wallet</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Recipient:</span>
+                    <strong className="text-white">{recipientName || "Not set"}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Daily Limit:</span>
+                    <strong className="text-white">${dailyWithdrawLimit}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Mode:</span>
+                    <strong className="text-white">{withdrawOnlyMode ? "Withdraw-Only" : "Full Access"}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Duration:</span>
+                    <strong className="text-white">{duration} days</strong>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -276,56 +480,74 @@ export function DelegationSetup({ open, onClose, onSuccess }: DelegationSetupPro
       )}
 
       {step === "confirm" && (
-        <div className="flex w-full flex-col gap-4">
-          <div className="rounded-lg bg-yellow-50 p-4 text-sm text-yellow-800">
+        <div className="flex w-full flex-col gap-6">
+          <div className={`rounded-xl border p-4 text-sm ${
+            delegationType === "auto-invest"
+              ? "bg-[#FFB800]/10 border-[#FFB800]/30 text-[#FFB800]"
+              : "bg-[#FFB800]/10 border-[#FFB800]/30 text-[#FFB800]"
+          }`}>
             ⚠️ <strong>Confirm Delegation</strong>
             <br />
-            You're about to allow the Telegram bot to make purchases up to ${weeklyLimit}/week
-            on your behalf. You can revoke this anytime.
+            <span className="text-[#A9B0B7]">
+              {delegationType === "auto-invest" ? (
+                <>You're about to enable automated wealth building. The Telegram bot will invest up to ${monthlyLimit}/month in your selected RWA assets. You can revoke this anytime.</>
+              ) : (
+                <>You're about to create a family wallet for {recipientName}. They will be able to withdraw up to ${dailyWithdrawLimit}/day. You can revoke this anytime.</>
+              )}
+            </span>
           </div>
 
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-slate-600">Bot Address:</span>
-              <span className="font-mono text-xs text-slate-900">
+          <div className="space-y-3 text-sm">
+            <div className="flex justify-between items-center rounded-xl bg-[#1C1F24] border border-[#2A2D32] p-3">
+              <span className="text-[#A9B0B7]">Bot Address:</span>
+              <span className="font-mono text-xs text-white">
                 {TELEGRAM_BOT_ADDRESS.slice(0, 6)}...{TELEGRAM_BOT_ADDRESS.slice(-4)}
               </span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-slate-600">Weekly Limit:</span>
-              <span className="font-semibold text-slate-900">${weeklyLimit}</span>
+            <div className="flex justify-between items-center rounded-xl bg-[#1C1F24] border border-[#2A2D32] p-3">
+              <span className="text-[#A9B0B7]">{delegationType === "auto-invest" ? "Monthly Limit" : "Daily Limit"}:</span>
+              <span className="font-semibold text-white">
+                ${delegationType === "auto-invest" ? monthlyLimit : dailyWithdrawLimit}
+              </span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-slate-600">Duration:</span>
-              <span className="font-semibold text-slate-900">{duration} days</span>
+            <div className="flex justify-between items-center rounded-xl bg-[#1C1F24] border border-[#2A2D32] p-3">
+              <span className="text-[#A9B0B7]">Duration:</span>
+              <span className="font-semibold text-white">{duration} days</span>
             </div>
           </div>
 
           <PrimaryButton onClick={handleSetupDelegation}>
-            Confirm & Enable Shopping
+            {delegationType === "auto-invest" ? "Confirm & Enable Auto-Invest" : "Confirm & Create Family Wallet"}
           </PrimaryButton>
         </div>
       )}
 
       {step === "processing" && (
         <div className="flex min-h-[300px] w-full flex-col items-center justify-center gap-4">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent"></div>
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#FF005C] border-t-transparent"></div>
           <div className="text-center">
-            <div className="text-lg font-semibold text-slate-900">
+            <div className="text-lg font-semibold text-white">
               Setting up delegation...
             </div>
-            <div className="text-sm text-slate-500">
-              Granting bot permission to shop on your behalf
+            <div className="text-sm text-[#A9B0B7]">
+              {delegationType === "auto-invest" 
+                ? "Granting bot permission to invest on your behalf"
+                : "Creating controlled family wallet access"
+              }
             </div>
           </div>
         </div>
       )}
 
       {step === "success" && (
-        <div className="flex min-h-[300px] w-full flex-col items-center justify-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+        <div className="flex min-h-[300px] w-full flex-col items-center justify-center gap-6">
+          <div className={`flex h-20 w-20 items-center justify-center rounded-full border-4 ${
+            delegationType === "auto-invest"
+              ? "bg-[#FF005C]/20 border-[#FF005C]"
+              : "bg-[#00F0FF]/20 border-[#00F0FF]"
+          }`}>
             <svg
-              className="h-8 w-8 text-emerald-600"
+              className={`h-10 w-10 ${delegationType === "auto-invest" ? "text-[#FF005C]" : "text-[#00F0FF]"}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -333,28 +555,61 @@ export function DelegationSetup({ open, onClose, onSuccess }: DelegationSetupPro
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth={2}
+                strokeWidth={3}
                 d="M5 13l4 4L19 7"
               />
             </svg>
           </div>
-          <div className="text-center">
-            <div className="mb-2 text-xl font-bold text-slate-900">
-              Telegram Shopping Enabled! 🎉
+          <div className="text-center max-w-md">
+            <div className="mb-3 text-2xl font-bold text-white">
+              {delegationType === "auto-invest" ? "Auto-Invest Enabled! 🚀" : "Family Wallet Created! 👨‍👩‍👧"}
             </div>
-            <div className="mb-4 text-sm text-slate-600">
-              You can now shop via Telegram bot with these limits:
+            <div className="mb-4 text-base text-[#A9B0B7]">
+              {delegationType === "auto-invest" ? (
+                <>Your wealth automation is now active. The Telegram bot will automatically invest according to your configuration:</>
+              ) : (
+                <>{recipientName} can now access their wallet via Telegram with these protections:</>
+              )}
             </div>
-            <div className="mb-4 text-left text-sm text-slate-600">
-              • Up to ${perItemLimit} per item
-              <br />
-              • Up to ${dailyLimit} per day
-              <br />
-              • Up to ${weeklyLimit} per week
-              <br />• Approval needed for ${approvalThreshold}+
+            <div className="mb-6 text-left text-sm rounded-xl bg-[#1C1F24] border border-[#2A2D32] p-4">
+              {delegationType === "auto-invest" ? (
+                <>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-[#FF005C]">•</span>
+                    <span className="text-[#A9B0B7]">Up to <strong className="text-white">${dailyLimit}</strong> per day</span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-[#FF005C]">•</span>
+                    <span className="text-[#A9B0B7]">Up to <strong className="text-white">${weeklyLimit}</strong> per week</span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-[#FF005C]">•</span>
+                    <span className="text-[#A9B0B7]">Up to <strong className="text-white">${monthlyLimit}</strong> per month</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[#FF005C]">•</span>
+                    <span className="text-[#A9B0B7]">Your approval needed for <strong className="text-white">${approvalThreshold}+</strong></span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-[#00F0FF]">•</span>
+                    <span className="text-[#A9B0B7]">Daily withdrawal limit: <strong className="text-white">${dailyWithdrawLimit}</strong></span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-[#00F0FF]">•</span>
+                    <span className="text-[#A9B0B7]">Mode: <strong className="text-white">{withdrawOnlyMode ? "Withdraw-Only" : "Full Access"}</strong></span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[#00F0FF]">•</span>
+                    <span className="text-[#A9B0B7]">Valid for: <strong className="text-white">{duration} days</strong></span>
+                  </div>
+                </>
+              )}
             </div>
-            <div className="text-xs text-slate-500">
-              You can manage or revoke this anytime in settings
+            <div className="text-xs text-[#6B7280] mb-4">
+              💡 You can manage or revoke this delegation anytime from your dashboard
             </div>
           </div>
           <PrimaryButton onClick={handleClose}>Done</PrimaryButton>
@@ -363,9 +618,9 @@ export function DelegationSetup({ open, onClose, onSuccess }: DelegationSetupPro
 
       {step === "error" && (
         <div className="flex min-h-[300px] w-full flex-col items-center justify-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#FF005C]/20 border-2 border-[#FF005C]">
             <svg
-              className="h-8 w-8 text-red-600"
+              className="h-8 w-8 text-[#FF005C]"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -379,8 +634,8 @@ export function DelegationSetup({ open, onClose, onSuccess }: DelegationSetupPro
             </svg>
           </div>
           <div className="text-center">
-            <div className="mb-2 text-xl font-bold text-slate-900">Setup Failed</div>
-            {error && <div className="mb-4 text-sm text-red-600">{error}</div>}
+            <div className="mb-2 text-xl font-bold text-white">Setup Failed</div>
+            {error && <div className="mb-4 text-sm text-[#FF005C] rounded-xl bg-[#FF005C]/10 border border-[#FF005C]/30 p-3">{error}</div>}
           </div>
           <PrimaryButton onClick={() => setStep("configure")}>Try Again</PrimaryButton>
         </div>

@@ -4,26 +4,33 @@ import "./globals.css";
 import { Providers } from "@/app/providers";
 
 // Inter - Variable font for body, UI, forms, navigation
-// Supports Latin, Latin Extended (accents), and extended character sets
+// Optimized: Using only necessary weights and preloading for performance
 const inter = Inter({
   variable: "--font-inter",
-  subsets: ["latin", "latin-ext"],
+  subsets: ["latin"],
   display: "swap",
-  weight: ["300", "400", "500", "600", "700"],
+  weight: ["400", "600", "700"], // Reduced from 5 to 3 weights
+  preload: true,
+  fallback: ['system-ui', 'arial'],
 });
 
-// Space Grotesk - For hero headings and major CTAs
-// Adds expressive brand personality while maintaining readability
+// Space Grotesk - For hero headings and major CTAs  
+// Optimized: Reduced weights for faster loading
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-heading",
-  subsets: ["latin", "latin-ext"],
+  subsets: ["latin"],
   display: "swap",
-  weight: ["500", "600", "700"],
+  weight: ["600", "700"], // Reduced from 3 to 2 weights
+  preload: true,
+  fallback: ['system-ui', 'arial'],
 });
 
 export const metadata: Metadata = {
   title: "StablePago - Build Caribbean Prosperity, One Transfer at a Time",
   description: "Turn remittances into wealth creation. Earn yield, invest in real assets, access credit. Send money to Puerto Rico, Dominican Republic & Haiti with 1.25% fees. Voice-powered wealth building for Caribbean families.",
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({

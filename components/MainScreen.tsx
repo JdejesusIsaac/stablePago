@@ -31,7 +31,7 @@ export function MainScreen({ walletAddress }: MainScreenProps) {
 
   const handleLogout = async () => {
     await logout();
-    router.push("/landing");
+    router.push("/"); // Redirect to landing page (root route)
   };
 
   return (
