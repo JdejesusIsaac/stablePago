@@ -4,6 +4,9 @@ import circleService from "@/services/circleService";
 import storageService from "@/services/storageService";
 import networkService, { type NetworkKey } from "@/services/networkService";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const isNetworkKey = (value: string): value is NetworkKey => {
   const networks = networkService.getAllNetworks();
   return Object.prototype.hasOwnProperty.call(networks, value);

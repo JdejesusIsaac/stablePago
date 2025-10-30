@@ -332,11 +332,50 @@ export default function EnhancedLandingPage() {
   const [country, setCountry] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [waitlistPosition, setWaitlistPosition] = useState<number | null>(null);
+  const [isExistingMember, setIsExistingMember] = useState(false);
+  const [marketingOptIn, setMarketingOptIn] = useState(true);
+  const [utmParams, setUtmParams] = useState({ source: "", medium: "", campaign: "" });
+  const [referralCode, setReferralCode] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("Passive Wealth");
   const [selectedCountry, setSelectedCountry] = useState("PR");
   const [isSimulating, setIsSimulating] = useState(false);
   const [response, setResponse] = useState("");
+
+  const handleSectionNavigation = (sectionId: string) => {
+    if (typeof window === "undefined") return;
+
+    const section = document.getElementById(sectionId);
+    if (section) {
+      section.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    window.history.replaceState(null, "", window.location.pathname);
+    setMobileMenuOpen(false);
+  };
+
+  // Clean up hash fragments on page load to prevent back button issues
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hash) {
+      // Remove hash from URL without triggering a page reload
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    setUtmParams({
+      source: params.get("utm_source") || "",
+      medium: params.get("utm_medium") || "",
+      campaign: params.get("utm_campaign") || "",
+    });
+    const refParam = params.get("ref") || params.get("referral");
+    setReferralCode(refParam ? refParam : null);
+  }, []);
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
 
   const { scrollYProgress } = useScroll();
@@ -348,15 +387,55 @@ export default function EnhancedLandingPage() {
 
   const handleWaitlistSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!isValidEmail(email)) {
+      setSubmitError("Please enter a valid email address.");
+      return;
+    }
+
     setIsSubmitting(true);
-    
+    setSubmitError(null);
+    setSuccessMessage(null);
+    setWaitlistPosition(null);
+    setIsExistingMember(false);
+
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const normalizedEmail = email.trim().toLowerCase();
+      const payload = {
+        email: normalizedEmail,
+        country: country || undefined,
+        marketingOptIn,
+        signupSource: "landing_page",
+        referralCode: referralCode || undefined,
+        utmSource: utmParams.source || undefined,
+        utmMedium: utmParams.medium || undefined,
+        utmCampaign: utmParams.campaign || undefined,
+      };
+
+      const response = await fetch("/api/waitlist", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || result.success === false) {
+        throw new Error(result.message || "Unable to join the waitlist. Please try again later.");
+      }
+
+      setSuccessMessage(result.message ?? null);
+      const position = typeof result.data?.position === "number" ? result.data.position : null;
+      setWaitlistPosition(position);
+      setIsExistingMember(Boolean(result.data?.isExisting));
       setSubmitSuccess(true);
       setEmail("");
       setCountry("");
     } catch (error) {
       console.error("Failed to join waitlist:", error);
+      setSubmitError(error instanceof Error ? error.message : "Something went wrong. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -460,15 +539,39 @@ export default function EnhancedLandingPage() {
               animate={{ opacity: 1, x: 0 }}
               className="flex items-center gap-3"
             >
-              <Image src="/logo.png" alt="StablePago" width={40} height={40} className="rounded-xl" />
+              <Image src="/stablePago.png" alt="StablePago - Wealth Creation" width={50} height={50} />
               <span className="text-xl font-bold tracking-tight">StablePago</span>
             </motion.div>
             
             <div className="hidden md:flex items-center gap-6">
-              <a href="#features" className="text-text-secondary hover:text-white transition-colors">Features</a>
-              <a href="#solution" className="text-text-secondary hover:text-white transition-colors">Solution</a>
-              <a href="#voice" className="text-text-secondary hover:text-white transition-colors">Voice AI</a>
-              <a href="#partners" className="text-text-secondary hover:text-white transition-colors">Partners</a>
+              <button
+                type="button"
+                onClick={() => handleSectionNavigation("features")}
+                className="text-text-secondary hover:text-white transition-colors"
+              >
+                Features
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSectionNavigation("solution")}
+                className="text-text-secondary hover:text-white transition-colors"
+              >
+                Solution
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSectionNavigation("voice")}
+                className="text-text-secondary hover:text-white transition-colors"
+              >
+                Voice AI
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSectionNavigation("partners")}
+                className="text-text-secondary hover:text-white transition-colors"
+              >
+                Partners
+              </button>
               <Link href="/home" className="rounded-xl bg-primary hover:bg-[#CC0049] text-white px-6 py-2 font-semibold transition-all duration-200 hover:shadow-[0_0_20px_rgba(255,0,92,0.4)] hover:scale-[1.02]">
                 Launch App
               </Link>
@@ -497,10 +600,34 @@ export default function EnhancedLandingPage() {
                 className="md:hidden border-t border-border overflow-hidden"
               >
                 <div className="px-4 py-4 space-y-3">
-                  <a href="#features" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-text-secondary hover:text-white transition-colors">Features</a>
-                  <a href="#solution" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-text-secondary hover:text-white transition-colors">Solution</a>
-                  <a href="#voice" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-text-secondary hover:text-white transition-colors">Voice AI</a>
-                  <a href="#partners" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-text-secondary hover:text-white transition-colors">Partners</a>
+                  <button
+                    type="button"
+                    onClick={() => handleSectionNavigation("features")}
+                    className="block py-2 text-left w-full text-text-secondary hover:text-white transition-colors"
+                  >
+                    Features
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSectionNavigation("solution")}
+                    className="block py-2 text-left w-full text-text-secondary hover:text-white transition-colors"
+                  >
+                    Solution
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSectionNavigation("voice")}
+                    className="block py-2 text-left w-full text-text-secondary hover:text-white transition-colors"
+                  >
+                    Voice AI
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSectionNavigation("partners")}
+                    className="block py-2 text-left w-full text-text-secondary hover:text-white transition-colors"
+                  >
+                    Partners
+                  </button>
                   <Link href="/home" className="block rounded-xl bg-primary hover:bg-[#CC0049] text-white px-6 py-3 font-semibold text-center transition-all duration-200">
                     Launch App
                   </Link>
@@ -570,12 +697,16 @@ export default function EnhancedLandingPage() {
             transition={{ delay: 0.7 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16"
           >
-            <a href="#waitlist" className="group btn-primary text-lg px-10 py-4 glow-primary w-full sm:w-auto flex items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleSectionNavigation("waitlist")}
+              className="group btn-primary text-lg px-10 py-4 glow-primary w-full sm:w-auto flex items-center justify-center gap-2"
+            >
               Join 5,000+ on Waitlist
               <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>
-            </a>
+            </button>
             <button 
               onClick={openVideoModal}
               className="group btn-secondary text-lg px-10 py-4 w-full sm:w-auto flex items-center justify-center gap-2"
@@ -802,9 +933,13 @@ export default function EnhancedLandingPage() {
           >
             <div className="inline-flex items-center gap-4 px-8 py-4 rounded-2xl bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/30">
               <span className="text-lg font-semibold">StablePago changes this.</span>
-              <a href="#solution" className="btn-secondary-sm">
+              <button
+                type="button"
+                onClick={() => handleSectionNavigation("solution")}
+                className="btn-secondary-sm"
+              >
                 See How →
-              </a>
+              </button>
             </div>
           </motion.div>
         </div>
@@ -1702,7 +1837,25 @@ export default function EnhancedLandingPage() {
                   ))}
                 </div>
               </div>
-              
+
+              <label className="flex items-start gap-3 text-sm text-text-secondary">
+                <input
+                  type="checkbox"
+                  checked={marketingOptIn}
+                  onChange={(e) => setMarketingOptIn(e.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                />
+                <span>
+                  I agree to receive product updates, early access messages, and occasional marketing communications.
+                </span>
+              </label>
+
+              {submitError && (
+                <div className="rounded-xl border border-error/40 bg-error/10 px-4 py-3 text-sm text-error">
+                  {submitError}
+                </div>
+              )}
+
               {/* Submit Button with Loading State */}
               <button
                 type="submit"
@@ -1746,10 +1899,19 @@ export default function EnhancedLandingPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h3 className="text-2xl font-bold mb-2">You're on the list! 🎉</h3>
+              <h3 className="text-2xl font-bold mb-2">
+                {isExistingMember ? "You're already on the list! 🙌" : "You're on the list! 🎉"}
+              </h3>
               <p className="text-text-secondary mb-6">
-                We'll notify you as soon as StablePago launches. Check your email for your exclusive invite!
+                {successMessage ?? (isExistingMember
+                  ? "Looks like you're already queued up — we'll keep you posted on launch updates."
+                  : "We'll notify you as soon as StablePago launches. Check your email for your exclusive invite!")}
               </p>
+              {waitlistPosition !== null && !isExistingMember && (
+                <div className="mb-4 rounded-lg bg-surface-elevated border border-border px-4 py-3 text-sm">
+                  You're currently <span className="font-semibold">#{waitlistPosition.toLocaleString()}</span> in line.
+                </div>
+              )}
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-success/10 text-success text-sm">
                 <span>💰</span>
                 <span>You'll receive $25 USDC bonus on signup</span>
@@ -1957,19 +2119,75 @@ export default function EnhancedLandingPage() {
             <div>
               <h4 className="font-bold mb-4">Company</h4>
               <ul className="space-y-2 text-text-secondary">
-                <li><a href="#" className="hover:text-white transition-colors">About</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Careers</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Blog</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Press</a></li>
+                <li>
+                  <button
+                    type="button"
+                    className="hover:text-white transition-colors"
+                    onClick={() => console.log("Navigate to About")}
+                  >
+                    About
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    className="hover:text-white transition-colors"
+                    onClick={() => console.log("Navigate to Careers")}
+                  >
+                    Careers
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    className="hover:text-white transition-colors"
+                    onClick={() => console.log("Navigate to Blog")}
+                  >
+                    Blog
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    className="hover:text-white transition-colors"
+                    onClick={() => console.log("Navigate to Press")}
+                  >
+                    Press
+                  </button>
+                </li>
               </ul>
             </div>
 
             <div>
               <h4 className="font-bold mb-4">Product</h4>
               <ul className="space-y-2 text-text-secondary">
-                <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
-                <li><a href="#solution" className="hover:text-white transition-colors">How It Works</a></li>
-                <li><a href="#voice" className="hover:text-white transition-colors">Voice AI</a></li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => handleSectionNavigation("features")}
+                    className="hover:text-white transition-colors"
+                  >
+                    Features
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => handleSectionNavigation("solution")}
+                    className="hover:text-white transition-colors"
+                  >
+                    How It Works
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => handleSectionNavigation("voice")}
+                    className="hover:text-white transition-colors"
+                  >
+                    Voice AI
+                  </button>
+                </li>
                 <li><a href="/home" className="hover:text-white transition-colors">Wallet</a></li>
               </ul>
             </div>
@@ -1977,18 +2195,58 @@ export default function EnhancedLandingPage() {
             <div>
               <h4 className="font-bold mb-4">Legal</h4>
               <ul className="space-y-2 text-text-secondary">
-                <li><a href="#" className="hover:text-white transition-colors">Privacy Policy</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Terms of Service</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Compliance</a></li>
+                <li>
+                  <button
+                    type="button"
+                    className="hover:text-white transition-colors"
+                    onClick={() => console.log("Navigate to Privacy Policy")}
+                  >
+                    Privacy Policy
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    className="hover:text-white transition-colors"
+                    onClick={() => console.log("Navigate to Terms of Service")}
+                  >
+                    Terms of Service
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    className="hover:text-white transition-colors"
+                    onClick={() => console.log("Navigate to Compliance")}
+                  >
+                    Compliance
+                  </button>
+                </li>
               </ul>
             </div>
 
             <div>
               <h4 className="font-bold mb-4">Contact</h4>
               <ul className="space-y-2 text-text-secondary">
-                <li><a href="mailto:info@stablepago.com" className="hover:text-white transition-colors">info@stablepago.com</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Telegram</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Twitter</a></li>
+                <li><a href="mailto:juandisaac@allow-me.xyz" className="hover:text-white transition-colors">juandisaac@allow-me.xyz</a></li>
+                <li>
+                  <button
+                    type="button"
+                    className="hover:text-white transition-colors"
+                    onClick={() => console.log("Navigate to Telegram")}
+                  >
+                    Telegram
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    className="hover:text-white transition-colors"
+                    onClick={() => console.log("Navigate to Twitter")}
+                  >
+                    Twitter
+                  </button>
+                </li>
               </ul>
             </div>
           </div>
@@ -1998,16 +2256,24 @@ export default function EnhancedLandingPage() {
               © 2025 StablePago LLC · All rights reserved.
             </p>
             <div className="flex items-center gap-4">
-              <a href="#" className="text-secondary hover:text-primary transition-colors">
+              <button
+                type="button"
+                className="text-secondary hover:text-primary transition-colors"
+                onClick={() => console.log("Navigate to Twitter")}
+              >
                 <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84" />
                 </svg>
-              </a>
-              <a href="#" className="text-secondary hover:text-primary transition-colors">
+              </button>
+              <button
+                type="button"
+                className="text-secondary hover:text-primary transition-colors"
+                onClick={() => console.log("Navigate to YouTube")}
+              >
                 <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.223-.548.223l.188-2.85 5.18-4.68c.223-.197-.054-.308-.346-.11l-6.4 4.02-2.76-.918c-.6-.183-.612-.6.126-.89l10.782-4.156c.5-.18.943.11.778.89z"/>
                 </svg>
-              </a>
+              </button>
             </div>
           </div>
         </div>

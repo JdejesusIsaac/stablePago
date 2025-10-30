@@ -45,7 +45,7 @@ export function MainScreen({ walletAddress }: MainScreenProps) {
         {/* Arc Network Header with Backdrop */}
         <div className="mb-6 flex h-16 w-full max-w-5xl items-center justify-between px-4 backdrop-arc rounded-2xl border border-border">
           <div className="flex items-center gap-3">
-            <Image src="/logo.png" alt="Logo" width={48} height={48} className="rounded-xl" />
+            <Image src="/stablePago.png" alt="StablePago - Wealth Creation" width={60} height={60} />
             <div className="text-2xl font-bold tracking-tight">Dashboard</div>
           </div>
           <button 

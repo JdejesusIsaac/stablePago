@@ -29,7 +29,13 @@ export const metadata: Metadata = {
   title: "StablePago - Build Caribbean Prosperity, One Transfer at a Time",
   description: "Turn remittances into wealth creation. Earn yield, invest in real assets, access credit. Send money to Puerto Rico, Dominican Republic & Haiti with 1.25% fees. Voice-powered wealth building for Caribbean families.",
   icons: {
-    icon: '/favicon.ico',
+    icon: [
+      { url: '/favicon.ico?v=2', sizes: 'any' },
+      { url: '/stablePago.png?v=2', type: 'image/png', sizes: '32x32' },
+      { url: '/stablePago.png?v=2', type: 'image/png', sizes: '16x16' },
+    ],
+    shortcut: '/favicon.ico?v=2',
+    apple: '/stablePago.png?v=2',
   },
 };
 
