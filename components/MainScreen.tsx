@@ -11,8 +11,8 @@ import { DashboardSummary } from "./dashboard-summary";
 import { DelegationCard } from "./dashboard-summary/DelegationCard";
 import { DelegationManager } from "./delegation/DelegationManager";
 import { DelegationSetup } from "./delegation/DelegationSetup";
-import { CreateWalletModal } from "./CreateWalletModal";
 import { CreateTelegramWalletModal } from "./CreateTelegramWalletModal";
+import { CreateWalletModal } from "./CreateWalletModal";
 
 interface MainScreenProps {
   walletAddress?: string;
@@ -24,8 +24,8 @@ export function MainScreen({ walletAddress }: MainScreenProps) {
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showDelegationManager, setShowDelegationManager] = useState(false);
   const [showDelegationSetup, setShowDelegationSetup] = useState(false);
-  const [showCreateWalletModal, setShowCreateWalletModal] = useState(false);
   const [showCreateTelegramWalletModal, setShowCreateTelegramWalletModal] = useState(false);
+  const [showCreateWalletModal, setShowCreateWalletModal] = useState(false);
   const { logout } = useAuth();
   const router = useRouter();
 
@@ -45,7 +45,7 @@ export function MainScreen({ walletAddress }: MainScreenProps) {
         {/* Arc Network Header with Backdrop */}
         <div className="mb-6 flex h-16 w-full max-w-5xl items-center justify-between px-4 backdrop-arc rounded-2xl border border-border">
           <div className="flex items-center gap-3">
-            <Image src="/logo.png" alt="Logo" width={48} height={48} className="rounded-xl" />
+            <Image src="/stablePago.png" alt="StablePago - Wealth Creation" width={60} height={60} />
             <div className="text-2xl font-bold tracking-tight">Dashboard</div>
           </div>
           <button 
@@ -70,7 +70,7 @@ export function MainScreen({ walletAddress }: MainScreenProps) {
           onCreateTelegramWalletClick={() => setShowCreateTelegramWalletModal(true)}
         />
         
-        {/* Delegation Card - Arc Network Style */}
+        {/* Delegation Card - Coming Soon Preview */}
         <div className="mb-8 w-full max-w-5xl">
           <DelegationCard
             onManageClick={() => setShowDelegationManager(true)}
@@ -106,13 +106,16 @@ export function MainScreen({ walletAddress }: MainScreenProps) {
             setShowDelegationSetup(false);
             setShowDelegationManager(true);
           }}
+          previewMode
         />
-        
+
         {/* Create Wallet Modal */}
         <CreateWalletModal
           open={showCreateWalletModal}
           onClose={() => setShowCreateWalletModal(false)}
         />
+
+        {/* Telegram Wallet Modal */}
         <CreateTelegramWalletModal
           open={showCreateTelegramWalletModal}
           onClose={() => setShowCreateTelegramWalletModal(false)}

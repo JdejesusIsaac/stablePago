@@ -1,26 +1,33 @@
 import Image from "next/image";
 import { WalletBalance } from "./WalletBallance";
-import { ArrowsRightLeftIcon, WalletIcon, PaperAirplaneIcon, UserPlusIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowsRightLeftIcon,
+  WalletIcon,
+  UserPlusIcon,
+  PaperAirplaneIcon,
+} from "@heroicons/react/24/outline";
 import { Dropdown } from "../common/Dropdown";
 import { useState } from "react";
 import { WalletDetails } from "./WalletDetails";
 import { useWallet, useAuth } from "@crossmint/client-sdk-react-ui";
 import { WarningModal } from "./WarningModal";
-import { DelegationManager } from "../delegation/DelegationManager";
-import { DelegationSetup } from "../delegation/DelegationSetup";
 
 interface DashboardSummaryProps {
   onDepositClick: () => void;
   onSendClick: () => void;
   onWithdrawClick: () => void;
   onCreateWalletClick: () => void;
-  onCreateTelegramWalletClick: () => void;
+  onCreateTelegramWalletClick?: () => void;
 }
 
-export function DashboardSummary({ onDepositClick, onSendClick, onWithdrawClick, onCreateWalletClick, onCreateTelegramWalletClick }: DashboardSummaryProps) {
+export function DashboardSummary({
+  onDepositClick,
+  onSendClick,
+  onWithdrawClick,
+  onCreateWalletClick,
+  onCreateTelegramWalletClick,
+}: DashboardSummaryProps) {
   const [showWalletDetails, setShowWalletDetails] = useState(false);
-  const [showDelegationManager, setShowDelegationManager] = useState(false);
-  const [showDelegationSetup, setShowDelegationSetup] = useState(false);
   const { wallet } = useWallet();
   const { user } = useAuth();
   const [openWarningModal, setOpenWarningModal] = useState(false);
@@ -33,13 +40,17 @@ export function DashboardSummary({ onDepositClick, onSendClick, onWithdrawClick,
         onCreateWalletClick();
       },
     },
-    {
-      icon: <PaperAirplaneIcon className="h-4 w-4" />,
-      label: "Create Telegram Wallet",
-      onClick: () => {
-        onCreateTelegramWalletClick();
-      },
-    },
+    ...(onCreateTelegramWalletClick
+      ? [
+          {
+            icon: <PaperAirplaneIcon className="h-4 w-4" />,
+            label: "Create Telegram Wallet",
+            onClick: () => {
+              onCreateTelegramWalletClick();
+            },
+          },
+        ]
+      : []),
     {
       icon: <ArrowsRightLeftIcon className="h-4 w-4" />,
       label: "Withdraw to Bank",
@@ -98,22 +109,6 @@ export function DashboardSummary({ onDepositClick, onSendClick, onWithdrawClick,
       
       <WalletDetails onClose={() => setShowWalletDetails(false)} open={showWalletDetails} />
       <WarningModal open={openWarningModal} onClose={() => setOpenWarningModal(false)} />
-      <DelegationManager
-        open={showDelegationManager}
-        onClose={() => setShowDelegationManager(false)}
-        onSetupNew={() => {
-          setShowDelegationManager(false);
-          setShowDelegationSetup(true);
-        }}
-      />
-      <DelegationSetup
-        open={showDelegationSetup}
-        onClose={() => setShowDelegationSetup(false)}
-        onSuccess={() => {
-          setShowDelegationSetup(false);
-          setShowDelegationManager(true);
-        }}
-      />
     </div>
   );
 }

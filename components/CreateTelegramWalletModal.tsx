@@ -9,6 +9,7 @@ import { PrimaryButton } from "./common/PrimaryButton";
 interface CreateTelegramWalletModalProps {
   open: boolean;
   onClose: () => void;
+  previewMode?: boolean;
 }
 
 type CreateWalletResult = {
@@ -21,7 +22,7 @@ type CreateWalletResult = {
 
 type NetworkKey = keyof typeof networks;
 
-export function CreateTelegramWalletModal({ open, onClose }: CreateTelegramWalletModalProps) {
+export function CreateTelegramWalletModal({ open, onClose, previewMode = true }: CreateTelegramWalletModalProps) {
   const [telegramUserId, setTelegramUserId] = useState("");
   const [network, setNetwork] = useState<string>("ARB-SEPOLIA");
   const [loading, setLoading] = useState(false);
@@ -50,6 +51,11 @@ export function CreateTelegramWalletModal({ open, onClose }: CreateTelegramWalle
     }
 
     try {
+      if (previewMode) {
+        setError("Telegram wallet automation is coming soon – stay tuned!");
+        return;
+      }
+
       setLoading(true);
       setError(null);
 
@@ -84,7 +90,15 @@ export function CreateTelegramWalletModal({ open, onClose }: CreateTelegramWalle
             <div className="rounded-lg bg-blue-50 p-4 text-sm text-blue-800">
               🤖 <strong>Create a Telegram wallet</strong>
               <br />
-              Provide the Telegram user ID (or chat ID) to create or fetch a wallet for that user.
+              {previewMode ? (
+                <span>
+                  Public launch coming soon. Preview the flow and get ready to onboard your Telegram users.
+                </span>
+              ) : (
+                <span>
+                  Provide the Telegram user ID (or chat ID) to create or fetch a wallet for that user.
+                </span>
+              )}
             </div>
 
             <div className="flex flex-col gap-2">
@@ -128,8 +142,8 @@ export function CreateTelegramWalletModal({ open, onClose }: CreateTelegramWalle
 
             {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
-            <PrimaryButton onClick={handleSubmit} disabled={loading}>
-              {loading ? "Creating Wallet..." : "Create Telegram Wallet"}
+            <PrimaryButton onClick={handleSubmit} disabled={loading || previewMode}>
+              {previewMode ? "Coming Soon" : loading ? "Creating Wallet..." : "Create Telegram Wallet"}
             </PrimaryButton>
           </>
         ) : (

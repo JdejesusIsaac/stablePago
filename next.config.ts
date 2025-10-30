@@ -1,14 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Performance optimizations
-  compiler: {
-    removeConsole: process.env.NODE_ENV === "production",
-  },
-  
-  // Experimental features for better performance
-  experimental: {
-    optimizePackageImports: ["@heroicons/react"],
+  webpack: (config) => {
+    config.resolve = config.resolve ?? {};
+    config.resolve.alias = config.resolve.alias ?? {};
+
+    config.resolve.alias["@react-native-async-storage/async-storage"] = false;
+    config.resolve.alias["pino-pretty"] = false;
+
+    return config;
   },
 };
 
