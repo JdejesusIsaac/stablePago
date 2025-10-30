@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface VideoModalProps {
@@ -9,25 +9,45 @@ interface VideoModalProps {
   videoUrl: string;
 }
 
+const buildYouTubeEmbedUrl = (url: string) => {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, "");
+
+    if (host === "youtube.com" || host === "m.youtube.com") {
+      const videoId = parsed.searchParams.get("v");
+      if (videoId) {
+        return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&rel=0&modestbranding=1`;
+      }
+    }
+
+    if (host === "youtu.be") {
+      const videoId = parsed.pathname.replace("/", "");
+      if (videoId) {
+        return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&rel=0&modestbranding=1`;
+      }
+    }
+  } catch (error) {
+    console.warn("Invalid video URL provided to VideoModal:", error);
+  }
+
+  return "";
+};
+
 export function VideoModal({ isOpen, onClose, videoUrl }: VideoModalProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
+  const embedUrl = useMemo(() => buildYouTubeEmbedUrl(videoUrl), [videoUrl]);
 
-  // Handle video lifecycle
   useEffect(() => {
-    if (isOpen && videoRef.current) {
-      // Autoplay when modal opens (muted for browser policy)
-      videoRef.current.play().catch((error) => {
-        console.error("Autoplay failed:", error);
-      });
-    } else if (!isOpen && videoRef.current) {
-      // Pause and reset when modal closes
-      videoRef.current.pause();
-      videoRef.current.currentTime = 0;
+    if (!embedUrl) {
+      setHasError(true);
+      setIsLoading(false);
+    } else {
+      setHasError(false);
+      setIsLoading(true);
     }
-  }, [isOpen]);
+  }, [embedUrl]);
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -52,21 +72,14 @@ export function VideoModal({ isOpen, onClose, videoUrl }: VideoModalProps) {
     return () => document.removeEventListener("keydown", handleEscape);
   }, [isOpen, onClose]);
 
-  const handleVideoLoaded = () => {
+  const handleIframeLoaded = () => {
     setIsLoading(false);
     setHasError(false);
   };
 
-  const handleVideoError = () => {
+  const handleIframeError = () => {
     setIsLoading(false);
     setHasError(true);
-  };
-
-  const toggleMute = () => {
-    if (videoRef.current) {
-      videoRef.current.muted = !videoRef.current.muted;
-      setIsMuted(!isMuted);
-    }
   };
 
   return (
@@ -137,52 +150,33 @@ export function VideoModal({ isOpen, onClose, videoUrl }: VideoModalProps) {
               )}
 
               {/* Video Player */}
-              <video
-                ref={videoRef}
-                className="w-full aspect-video"
-                controls
-                controlsList="nodownload"
-                playsInline
-                muted={isMuted}
-                onLoadedData={handleVideoLoaded}
-                onError={handleVideoError}
-                preload="metadata"
-              >
-                <source src={videoUrl} type="video/mp4" />
-                <p className="text-text-secondary p-8">
-                  Your browser doesn't support video playback. Please try a different browser.
-                </p>
-              </video>
-
-              {/* Unmute Prompt (appears if video is muted) */}
-              <AnimatePresence>
-                {isMuted && !isLoading && !hasError && (
-                  <motion.button
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 10 }}
-                    onClick={toggleMute}
-                    className="absolute bottom-20 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full bg-primary/90 hover:bg-primary text-white font-semibold flex items-center gap-2 shadow-[0_0_20px_rgba(255,0,92,0.4)] transition-all duration-200 hover:scale-105 z-20"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-                    </svg>
-                    Click to Unmute
-                  </motion.button>
-                )}
-              </AnimatePresence>
+              {embedUrl && !hasError ? (
+                <iframe
+                  key={embedUrl}
+                  className="w-full aspect-video"
+                  src={embedUrl}
+                  title="StablePago demo video"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  onLoad={handleIframeLoaded}
+                  onError={handleIframeError}
+                />
+              ) : (
+                <div className="w-full aspect-video flex items-center justify-center bg-background text-text-secondary p-8">
+                  Unable to load video. Please try again later.
+                </div>
+              )}
             </div>
 
             {/* Video Info */}
-            <div className="mt-4 text-center">
-              <h3 id="video-modal-title" className="text-lg font-semibold text-white mb-1">
-                StablePago Platform Demo
-              </h3>
-              <p className="text-sm text-text-secondary">
-                See how we're transforming Caribbean remittances into wealth creation
-              </p>
-            </div>
+                <div className="mt-4 text-center">
+                  <h3 id="video-modal-title" className="text-lg font-semibold text-white mb-1">
+                    ElevenLabs × Circle Telegram Agent Demo
+                  </h3>
+                  <p className="text-sm text-text-secondary">
+                    Voice-controlled flows for wallet creation, balance checks, USDC transfers (including CCTP), and bilingual RWA market data powered by CoinGecko.
+                  </p>
+                </div>
           </motion.div>
         </div>
       )}

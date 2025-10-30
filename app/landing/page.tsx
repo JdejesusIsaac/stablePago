@@ -2285,7 +2285,7 @@ export default function EnhancedLandingPage() {
           <VideoModal
             isOpen={isVideoModalOpen}
             onClose={closeVideoModal}
-            videoUrl="/videos/demo.mp4"
+            videoUrl="https://www.youtube.com/watch?v=VPZbJYJc8ms"
           />
         </Suspense>
       )}
